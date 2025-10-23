@@ -5,7 +5,7 @@ namespace App\Enums;
 enum TimetableType: string
 {
     case STATIC = 'static';
-    case DYNAMIC = 'dynamic';
+    case dinamic = 'dinamic';
 
     public static function values(): array
     {
@@ -21,7 +21,7 @@ enum TimetableType: string
     {
         return match($this) {
             self::STATIC => 'Static Schedule',
-            self::DYNAMIC => 'Dynamic Schedule',
+            self::dinamic => 'dinamic Schedule',
         };
     }
 
@@ -30,8 +30,8 @@ enum TimetableType: string
         return $this === self::STATIC;
     }
 
-    public function isDynamic(): bool
+    public function isdinamic(): bool
     {
-        return $this === self::DYNAMIC;
+        return $this === self::dinamic;
     }
 }

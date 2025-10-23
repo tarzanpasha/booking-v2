@@ -21,7 +21,7 @@ enum SlotStrategy: string
     {
         return match($this) {
             self::FIXED => 'Fixed',
-            self::DINAMIC => 'Dynamic',
+            self::DINAMIC => 'dinamic',
         };
     }
 }
