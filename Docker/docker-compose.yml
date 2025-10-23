@@ -1,0 +1,33 @@
+version: '3.1'
+
+networks:
+  backend:
+    driver: bridge
+
+services:
+  booking:
+    image: mysql:8.0
+    container_name: booking
+    volumes:
+      - ./data/booking:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=booking
+      - MYSQL_DATABASE=booking
+      - MYSQL_USER=booking
+      - MYSQL_PASSWORD=booking
+    ports:
+      - "8006:3306"
+    networks:
+      - backend
+  phpmyadmin_booking:
+    container_name: phpmyadmin_booking
+    image: phpmyadmin
+    restart: always
+    ports:
+      - "8093:80"
+    environment:
+      - PMA_HOST=booking
+    depends_on:
+      - booking
+    networks:
+      - backend
