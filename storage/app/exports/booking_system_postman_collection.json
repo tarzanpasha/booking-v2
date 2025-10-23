@@ -1,0 +1,200 @@
+{
+  "info": {
+    "name": "Booking System API",
+    "description": "API for Universal Booking System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Companies",
+      "item": [
+        {
+          "name": "Get All Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies"]
+            }
+          }
+        },
+        {
+          "name": "Create Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Company\",\n  \"description\": \"Test company description\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/companies",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies"]
+            }
+          }
+        },
+        {
+          "name": "Get Company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/companies/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "companies", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timetables",
+      "item": [
+        {
+          "name": "Get All Timetables",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/timetables",
+              "host": ["{{base_url}}"],
+              "path": ["api", "timetables"]
+            }
+          }
+        },
+        {
+          "name": "Create Static Timetable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"static\",\n  \"schedule\": {\n    \"days\": {\n      \"monday\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"13:00\",\n            \"end\": \"14:00\"\n          }\n        ]\n      },\n      \"tuesday\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"13:00\",\n            \"end\": \"14:00\"\n          }\n        ]\n      }\n    },\n    \"holidays\": [\"01-01\", \"03-08\", \"05-01\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/timetables",
+              "host": ["{{base_url}}"],
+              "path": ["api", "timetables"]
+            }
+          }
+        },
+        {
+          "name": "Create Dynamic Timetable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"dynamic\",\n  \"schedule\": {\n    \"dates\": {\n      \"01-11\": {\n        \"working_hours\": {\n          \"start\": \"10:00\",\n          \"end\": \"19:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"14:00\",\n            \"end\": \"15:00\"\n          }\n        ]\n      },\n      \"01-12\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"17:00\"\n        },\n        \"breaks\": []\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/timetables",
+              "host": ["{{base_url}}"],
+              "path": ["api", "timetables"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resource Types",
+      "item": [
+        {
+          "name": "Get All Resource Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/resource-types",
+              "host": ["{{base_url}}"],
+              "path": ["api", "resource-types"]
+            }
+          }
+        },
+        {
+          "name": "Create Resource Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"meeting_room\",\n  \"name\": \"Meeting Room\",\n  \"description\": \"Conference meeting room\",\n  \"options\": {\n    \"capacity\": 10\n  },\n  \"resource_config\": {\n    \"slot_duration_minutes\": 60,\n    \"max_participants\": 10,\n    \"require_confirmation\": false,\n    \"slot_strategy\": \"fixed\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/resource-types",
+              "host": ["{{base_url}}"],
+              "path": ["api", "resource-types"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "item": [
+        {
+          "name": "Get All Resources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/resources",
+              "host": ["{{base_url}}"],
+              "path": ["api", "resources"]
+            }
+          }
+        },
+        {
+          "name": "Create Resource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resource_type_id\": 1,\n  \"options\": {\n    \"location\": \"Floor 3\"\n  },\n  \"payload\": {\n    \"equipment\": [\"projector\", \"whiteboard\"]\n  },\n  \"resource_config\": {\n    \"slot_duration_minutes\": 30,\n    \"max_participants\": 8\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/resources",
+              "host": ["{{base_url}}"],
+              "path": ["api", "resources"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ]
+}
