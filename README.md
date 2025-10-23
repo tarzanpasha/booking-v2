@@ -19,9 +19,9 @@
 - Содержит базовую информацию об организации
 
 ### Timetable (Расписание)
-- Поддерживает два типа: static (статическое) и dynamic (динамическое)
+- Поддерживает два типа: static (статическое) и dinamic (динамическое)
 - Static: расписание по дням недели с праздниками
-- Dynamic: расписание по конкретным датам
+- dinamic: расписание по конкретным датам
 - Может быть привязано к ресурсам и типам ресурсов
 
 ### ResourceType (Тип ресурса)
@@ -93,7 +93,7 @@ docker-compose down
 php artisan timetable:generate-static 1
 
 Динамическое расписание на 30 дней:
-php artisan timetable:generate-dynamic 1 30
+php artisan timetable:generate-dinamic 1 30
 
 ## API Endpoints
 
