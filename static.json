@@ -1,0 +1,101 @@
+{
+    "days": {
+        "friday": {
+            "breaks": [],
+            "working_hours": {
+                "end": "19:00",
+                "start": "09:00"
+            }
+        },
+        "monday": {
+            "breaks": [],
+            "working_hours": {
+                "end": "18:00",
+                "start": "09:00"
+            }
+        },
+        "sunday": {
+            "breaks": [],
+            "working_hours": {
+                "end": "18:00",
+                "start": "10:00"
+            }
+        },
+        "tuesday": {
+            "breaks": [
+                {
+                    "end": "14:00",
+                    "start": "13:00"
+                },
+                {
+                    "end": "16:00",
+                    "start": "15:00"
+                }
+            ],
+            "working_hours": {
+                "end": "19:00",
+                "start": "10:00"
+            }
+        },
+        "saturday": {
+            "breaks": [
+                {
+                    "end": "15:00",
+                    "start": "14:00"
+                },
+                {
+                    "end": "12:00",
+                    "start": "11:00"
+                }
+            ],
+            "working_hours": {
+                "end": "19:00",
+                "start": "08:00"
+            }
+        },
+        "thursday": {
+            "breaks": [
+                {
+                    "end": "14:00",
+                    "start": "13:00"
+                }
+            ],
+            "working_hours": {
+                "end": "17:00",
+                "start": "08:00"
+            }
+        },
+        "wednesday": {
+            "breaks": [
+                {
+                    "end": "15:00",
+                    "start": "14:00"
+                },
+                {
+                    "end": "13:00",
+                    "start": "12:00"
+                }
+            ],
+            "working_hours": {
+                "end": "17:00",
+                "start": "09:00"
+            }
+        }
+    },
+    "holidays": [
+        "01-01",
+        "01-02",
+        "01-03",
+        "01-04",
+        "01-05",
+        "01-06",
+        "01-08",
+        "01-07",
+        "02-23",
+        "03-08",
+        "05-01",
+        "05-09",
+        "06-12",
+        "11-04"
+    ]
+}

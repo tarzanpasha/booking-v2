@@ -1,79 +1,72 @@
 {
-  "days": {
-    "monday": {
-      "working_hours": {
-        "start": "09:00",
-        "end": "18:00"
-      },
-      "breaks": [
-        {
-          "start": "13:00",
-          "end": "14:00"
-        }
-      ]
+    "days": {
+        "monday": null,
+        "tuesday": {
+            "working_hours": {
+                "start": "09:00",
+                "end": "18:00"
+            },
+            "breaks": [
+                {
+                    "start": "11:00",
+                    "end": "11:30"
+                },
+                {
+                    "start": "14:00",
+                    "end": "14:30"
+                }
+            ]
+        },
+        "wednesday": null,
+        "thursday": {
+            "working_hours": {
+                "start": "09:00",
+                "end": "18:00"
+            },
+            "breaks": [
+                {
+                    "start": "11:00",
+                    "end": "11:30"
+                },
+                {
+                    "start": "14:00",
+                    "end": "14:30"
+                }
+            ]
+        },
+        "friday": null,
+        "saturday": {
+            "working_hours": {
+                "start": "09:00",
+                "end": "17:00"
+            },
+            "breaks": [
+                {
+                    "start": "11:00",
+                    "end": "11:30"
+                },
+                {
+                    "start": "14:00",
+                    "end": "14:30"
+                }
+            ]
+        },
+        "sunday": null
     },
-    "tuesday": {
-      "working_hours": {
-        "start": "09:00",
-        "end": "18:00"
-      },
-      "breaks": [
-        {
-          "start": "13:00",
-          "end": "14:00"
-        }
-      ]
-    },
-    "wednesday": {
-      "working_hours": {
-        "start": "09:00",
-        "end": "18:00"
-      },
-      "breaks": [
-        {
-          "start": "13:00",
-          "end": "14:00"
-        }
-      ]
-    },
-    "thursday": {
-      "working_hours": {
-        "start": "09:00",
-        "end": "18:00"
-      },
-      "breaks": [
-        {
-          "start": "13:00",
-          "end": "14:00"
-        }
-      ]
-    },
-    "friday": {
-      "working_hours": {
-        "start": "09:00",
-        "end": "17:00"
-      },
-      "breaks": [
-        {
-          "start": "13:00",
-          "end": "14:00"
-        }
-      ]
-    },
-    "saturday": {
-      "working_hours": {
-        "start": "10:00",
-        "end": "16:00"
-      },
-      "breaks": []
-    },
-    "sunday": {
-      "working_hours": {
-        "start": "10:00",
-        "end": "16:00"
-      },
-      "breaks": []
-    }
-  },
-  "holidays": ["01-01", "01-02", "01-03", "01-04", "01-05", "01-06", "01-07", "01-08", "02-23", "03-08", "05-01", "05-09", "06-12", "11-04"]
+    "holidays": [
+        "01-01",
+        "01-02",
+        "01-03",
+        "01-04",
+        "01-05",
+        "01-06",
+        "01-08",
+        "01-07",
+        "02-23",
+        "03-08",
+        "05-01",
+        "05-09",
+        "06-12",
+        "11-04"
+    ]
 }
