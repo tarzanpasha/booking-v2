@@ -191,11 +191,9 @@ class GenerateStaticTimetable extends Command
     {
         $random = rand(1, 100);
 
-        if ($random <= 20) {       // 20% вероятность - 0 перерывов
-            return 0;
-        } elseif ($random <= 65) { // 45% вероятность - 1 перерыв (20% + 45% = 65%)
+        if ($random <= 40) {
             return 1;
-        } else {                   // 35% вероятность - 2 перерыва (65% + 35% = 100%)
+        } else {
             return 2;
         }
     }

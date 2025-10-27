@@ -18,3 +18,5 @@ yarn-error.log
 /.idea
 /.vscode
 /Docker/data/
+/root.txt
+/generate_file_list.sh
