@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CheckAvailabilityRequest;
+use App\Http\Requests\GetResourceBookingsRequest;
 use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\Booking\BookingService;
@@ -15,8 +17,6 @@ use App\Http\Requests\CreateBookingRequest;
 use App\Http\Requests\RescheduleBookingRequest;
 use App\Http\Requests\CancelBookingRequest;
 use App\Http\Requests\GetSlotsRequest;
-use App\Http\Requests/CheckAvailabilityRequest;
-use App\Http\Requests/GetResourceBookingsRequest;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\ResourceResource;
 use App\Http\Resources\SlotResource;
