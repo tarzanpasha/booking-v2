@@ -49,10 +49,8 @@ class GenerateStaticTimetable extends Command
                     'working_hours' => $workingHours,
                     'breaks' => $breaksTemplate,
                 ];
-            } else {
-                // Нерабочий день
-                $schedule['days'][$day] = null;
             }
+            // Нерабочие дни не добавляем в расписание
         }
 
         // Российские праздники

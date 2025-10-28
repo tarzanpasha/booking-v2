@@ -27,6 +27,7 @@ use App\Http\Controllers\TimetableController;
 use App\Http\Controllers\ResourceTypeController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\TimetableImportController;
 
 // Core Entities CRUD
 Route::apiResource('companies', CompanyController::class);
@@ -55,6 +56,15 @@ Route::prefix('booking')->group(function () {
     Route::post('/{id}/reschedule', [BookingController::class, 'rescheduleBooking']);
     Route::get('/resource/{id}/bookings', [BookingController::class, 'getBookingsForResource']);
     Route::get('/check', [BookingController::class, 'checkSlotAvailability']);
+});
+
+// =============================================
+// Timetable Import Routes
+// =============================================
+
+Route::prefix('timetables')->group(function () {
+    Route::post('/import-json', [TimetableImportController::class, 'importFromJson']);
+    Route::post('/import-file', [TimetableImportController::class, 'importFromFile']);
 });
 
 // =============================================

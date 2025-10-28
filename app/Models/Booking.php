@@ -45,6 +45,6 @@ class Booking extends Model
 
     public function bookers(): MorphToMany
     {
-        return $this->morphToMany(Booker::class, 'bookable');
+        return $this->morphedByMany(Booker::class, 'bookable');
     }
 }
