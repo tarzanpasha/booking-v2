@@ -11,6 +11,10 @@ class ResourceConfig
     public ?int $slot_duration_minutes = 60;
     public ?int $max_participants = null;
     public ?SlotStrategy $slot_strategy = SlotStrategy::FIXED;
+    public ?int $min_advance_time = 0;
+    public ?int $cancellation_time = null;
+    public ?int $reschedule_time = null;
+    public ?int $reminder_time = null;
 
     public function __construct(array $data = [])
     {
@@ -50,27 +54,16 @@ class ResourceConfig
             'slot_duration_minutes' => $this->slot_duration_minutes,
             'max_participants' => $this->max_participants,
             'slot_strategy' => $this->slot_strategy->value,
+            'min_advance_time' => $this->min_advance_time,
+            'cancellation_time' => $this->cancellation_time,
+            'reschedule_time' => $this->reschedule_time,
+            'reminder_time' => $this->reminder_time,
         ];
     }
 
-    public function isFixedStrategy(): bool
+    public function isGroupResource(): bool
     {
-        return $this->slot_strategy === SlotStrategy::FIXED;
-    }
-
-    public function isDinamicStrategy(): bool
-    {
-        return $this->slot_strategy === SlotStrategy::DINAMIC;
-    }
-
-    public function getSlotStrategy(): SlotStrategy
-    {
-        return $this->slot_strategy;
-    }
-
-    public function getSlotDurationHours(): float
-    {
-        return $this->slot_duration_minutes / 60;
+        return $this->max_participants !== null && $this->max_participants > 1;
     }
 
     public function requiresConfirmation(): bool
@@ -78,8 +71,46 @@ class ResourceConfig
         return $this->require_confirmation === true;
     }
 
-    public function hasMaxParticipants(): bool
+    public function isFixedStrategy(): bool
     {
-        return $this->max_participants !== null;
+        return $this->slot_strategy === SlotStrategy::FIXED;
+    }
+
+    public function isDynamicStrategy(): bool
+    {
+        return $this->slot_strategy === SlotStrategy::DINAMIC;
+    }
+
+    public function canCancel(\DateTime $bookingStart): bool
+    {
+        if ($this->cancellation_time === null) return true;
+
+        $now = new \DateTime();
+        $diff = $now->diff($bookingStart);
+        $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
+
+        return $minutes >= $this->cancellation_time;
+    }
+
+    public function canReschedule(\DateTime $bookingStart): bool
+    {
+        if ($this->reschedule_time === null) return true;
+
+        $now = new \DateTime();
+        $diff = $now->diff($bookingStart);
+        $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
+
+        return $minutes >= $this->reschedule_time;
+    }
+
+    public function shouldSendReminder(\DateTime $bookingStart): bool
+    {
+        if ($this->reminder_time === null) return false;
+
+        $now = new \DateTime();
+        $diff = $now->diff($bookingStart);
+        $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
+
+        return $minutes <= $this->reminder_time;
     }
 }

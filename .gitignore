@@ -17,6 +17,3 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
-/Docker/data/
-/root.txt
-/generate_file_list.sh
