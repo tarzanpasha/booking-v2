@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Booking System API",
-    "description": "API for Universal Booking System",
+    "description": "Complete API for Universal Booking System",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -40,16 +40,201 @@
               "path": ["api", "companies"]
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Booking Resources",
+      "item": [
         {
-          "name": "Get Company",
+          "name": "Get All Resources",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/companies/1",
+              "raw": "{{base_url}}/api/booking/resources",
               "host": ["{{base_url}}"],
-              "path": ["api", "companies", "1"]
+              "path": ["api", "booking", "resources"]
+            }
+          }
+        },
+        {
+          "name": "Get Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/booking/1/slots?date=2024-01-15&count=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "1", "slots"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2024-01-15"
+                },
+                {
+                  "key": "count",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check Slot Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/booking/check?resource_id=1&start=2024-01-15 14:00:00&end=2024-01-15 15:00:00",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "check"],
+              "query": [
+                {
+                  "key": "resource_id",
+                  "value": "1"
+                },
+                {
+                  "key": "start",
+                  "value": "2024-01-15 14:00:00"
+                },
+                {
+                  "key": "end",
+                  "value": "2024-01-15 15:00:00"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Booking Management",
+      "item": [
+        {
+          "name": "Create Booking (Client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resource_id\": 1,\n  \"start\": \"2024-01-15 14:00:00\",\n  \"end\": \"2024-01-15 15:00:00\",\n  \"booker\": {\n    \"external_id\": \"client_123\",\n    \"type\": \"client\",\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"phone\": \"+1234567890\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Booking (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resource_id\": 1,\n  \"start\": \"2024-01-15 16:00:00\",\n  \"end\": \"2024-01-15 17:00:00\",\n  \"is_admin\": true,\n  \"booker\": {\n    \"external_id\": \"admin_1\",\n    \"type\": \"admin\",\n    \"name\": \"Admin User\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "create"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/1/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "1", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Booking (Client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancelled_by\": \"client\",\n  \"reason\": \"Plans changed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/1/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "1", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "Reschedule Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_start\": \"2024-01-16 10:00:00\",\n  \"new_end\": \"2024-01-16 11:00:00\",\n  \"requested_by\": \"client\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/booking/1/reschedule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "1", "reschedule"]
+            }
+          }
+        },
+        {
+          "name": "Get Resource Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/booking/resource/1/bookings?from=2024-01-01&to=2024-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "booking", "resource", "1", "bookings"],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2024-01-31"
+                }
+              ]
             }
           }
         }
@@ -90,47 +275,14 @@
               "path": ["api", "timetables"]
             }
           }
-        },
-        {
-          "name": "Create Dynamic Timetable",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"dynamic\",\n  \"schedule\": {\n    \"dates\": {\n      \"01-11\": {\n        \"working_hours\": {\n          \"start\": \"10:00\",\n          \"end\": \"19:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"14:00\",\n            \"end\": \"15:00\"\n          }\n        ]\n      },\n      \"01-12\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"17:00\"\n        },\n        \"breaks\": []\n      }\n    }\n  }\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/timetables",
-              "host": ["{{base_url}}"],
-              "path": ["api", "timetables"]
-            }
-          }
         }
       ]
     },
     {
-      "name": "Resource Types",
+      "name": "Timetable Import",
       "item": [
         {
-          "name": "Get All Resource Types",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/resource-types",
-              "host": ["{{base_url}}"],
-              "path": ["api", "resource-types"]
-            }
-          }
-        },
-        {
-          "name": "Create Resource Type",
+          "name": "Import Timetable from JSON Data",
           "request": {
             "method": "POST",
             "header": [
@@ -141,50 +293,49 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"meeting_room\",\n  \"name\": \"Meeting Room\",\n  \"description\": \"Conference meeting room\",\n  \"options\": {\n    \"capacity\": 10\n  },\n  \"resource_config\": {\n    \"slot_duration_minutes\": 60,\n    \"max_participants\": 10,\n    \"require_confirmation\": false,\n    \"slot_strategy\": \"fixed\"\n  }\n}"
+              "raw": "{\n  \"company_id\": 1,\n  \"type\": \"static\",\n  \"schedule_data\": {\n    \"days\": {\n      \"monday\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"13:00\",\n            \"end\": \"14:00\"\n          }\n        ]\n      },\n      \"tuesday\": null,\n      \"wednesday\": {\n        \"working_hours\": {\n          \"start\": \"09:00\",\n          \"end\": \"18:00\"\n        },\n        \"breaks\": [\n          {\n            \"start\": \"13:00\",\n            \"end\": \"14:00\"\n          }\n        ]\n      }\n    },\n    \"holidays\": [\"01-01\", \"05-01\"]\n  }\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/resource-types",
+              "raw": "{{base_url}}/api/timetables/import-json",
               "host": ["{{base_url}}"],
-              "path": ["api", "resource-types"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Resources",
-      "item": [
-        {
-          "name": "Get All Resources",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/resources",
-              "host": ["{{base_url}}"],
-              "path": ["api", "resources"]
+              "path": ["api", "timetables", "import-json"]
             }
           }
         },
         {
-          "name": "Create Resource",
+          "name": "Import Timetable from JSON File",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "multipart/form-data"
               }
             ],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"resource_type_id\": 1,\n  \"options\": {\n    \"location\": \"Floor 3\"\n  },\n  \"payload\": {\n    \"equipment\": [\"projector\", \"whiteboard\"]\n  },\n  \"resource_config\": {\n    \"slot_duration_minutes\": 30,\n    \"max_participants\": 8\n  }\n}"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "company_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "type",
+                  "value": "static",
+                  "type": "text"
+                },
+                {
+                  "key": "schedule_file",
+                  "type": "file",
+                  "src": "/path/to/your/timetable.json"
+                }
+              ]
             },
             "url": {
-              "raw": "{{base_url}}/api/resources",
+              "raw": "{{base_url}}/api/timetables/import-file",
               "host": ["{{base_url}}"],
-              "path": ["api", "resources"]
+              "path": ["api", "timetables", "import-file"]
             }
           }
         }

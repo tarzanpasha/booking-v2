@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Actions\CreateOrUpdateCompanyAction;
+use App\Actions\CreateTimetableFromJsonAction;
 use App\Models\Timetable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -13,165 +14,161 @@ class GenerateDinamicTimetable extends Command
     protected $signature = 'timetable:generate-dinamic {company_id} {days=30}';
     protected $description = 'Generate dinamic timetable for specified period';
 
-    public function handle(CreateOrUpdateCompanyAction $createOrUpdateCompanyAction): void
-    {
+    public function handle(
+        CreateOrUpdateCompanyAction $createOrUpdateCompanyAction,
+        CreateTimetableFromJsonAction $createTimetableFromJsonAction
+    ): void {
         $companyId = $this->argument('company_id');
         $daysCount = $this->argument('days');
 
         // Создаем или получаем компанию
         $company = $createOrUpdateCompanyAction->execute($companyId);
 
-        // ОДИН РАЗ выбираем тип расписания
-        $scheduleType = $this->selectScheduleType();
-        $this->info("Selected schedule type: {$scheduleType}");
-
-        // Генерируем расписание в зависимости от типа
         $schedule = ['dates' => []];
         $startDate = now();
 
-        switch ($scheduleType) {
-            case 'weekdays_9h':
-                $schedule = $this->generateWeekdays9h($startDate, $daysCount);
-                break;
-            case 'day_after_day_12h':
-                $schedule = $this->generateDayAfterDay12h($startDate, $daysCount);
-                break;
-            case '24h_after_48h':
-                $schedule = $this->generate24hAfter48h($startDate, $daysCount);
-                break;
+        for ($i = 0; $i < $daysCount; $i++) {
+            $date = $startDate->copy()->addDays($i);
+
+            // Пропускаем некоторые дни (30% вероятность для выходных)
+            $dayOfWeek = $date->dayOfWeek;
+            $isWeekend = ($dayOfWeek === 0 || $dayOfWeek === 6); // 0 - воскресенье, 6 - суббота
+
+            if ($isWeekend && rand(1, 100) <= 70) {
+                continue; // Пропускаем большинство выходных
+            }
+
+            if (!$isWeekend && rand(1, 100) <= 15) {
+                continue; // Пропускаем некоторые будни
+            }
+
+            $dateKey = $date->format('m-d');
+
+            // Генерируем уникальный график для каждого дня
+            $schedule['dates'][$dateKey] = $this->generateDailySchedule();
         }
 
-        $timetable = Timetable::create([
-            'company_id' => $companyId,
-            'type' => 'dinamic',
-            'schedule' => $schedule,
-        ]);
+        $timetable = $createTimetableFromJsonAction->execute($companyId, $schedule, 'dinamic');
 
         // Сохраняем пример в файл
         Storage::put('exports/dinamic_timetable_example.json', json_encode($schedule, JSON_PRETTY_PRINT));
 
         $this->info("Dinamic timetable created successfully for company {$companyId}");
-        $this->info("Generated {$daysCount} days schedule");
+        $this->info("Generated schedule for " . count($schedule['dates']) . " days (some days skipped)");
         $this->info("Example saved to storage/app/exports/dinamic_timetable_example.json");
     }
 
     /**
-     * Выбирает тип расписания
+     * Генерирует уникальный график для одного дня
      */
-    private function selectScheduleType(): string
+    private function generateDailySchedule(): array
     {
-        $types = [
-            'weekdays_9h',        // Будни по 9 часов, пятница сокращенная
-            'day_after_day_12h',  // День через день по 12 часов
-            '24h_after_48h',      // Сутки через двое
+        $scheduleTypes = [
+            '8h_normal' => ['start' => '09:00', 'end' => '17:00'],
+            '8h_early' => ['start' => '08:00', 'end' => '16:00'],
+            '8h_late' => ['start' => '10:00', 'end' => '18:00'],
+            '10h' => ['start' => '08:00', 'end' => '18:00'],
+            '12h' => ['start' => '08:00', 'end' => '20:00'],
+            '24h' => ['start' => '08:00', 'end' => '08:00'], // Следующего дня
+            '6h_short' => ['start' => '10:00', 'end' => '16:00'],
         ];
 
-        return $types[array_rand($types)];
+        // Выбираем случайный тип графика
+        $scheduleType = array_rand($scheduleTypes);
+        $workingHours = $scheduleTypes[$scheduleType];
+
+        // Генерируем перерывы в зависимости от типа графика
+        $breaks = $this->generateBreaksForSchedule($scheduleType, $workingHours);
+
+        return [
+            'working_hours' => $workingHours,
+            'breaks' => $breaks,
+            'schedule_type' => $scheduleType, // Для отладки
+        ];
     }
 
     /**
-     * Расписание: Будни по 9 часов, пятница сокращенная
+     * Генерирует перерывы в зависимости от типа графика
      */
-    private function generateWeekdays9h($startDate, $daysCount): array
+    private function generateBreaksForSchedule(string $scheduleType, array $workingHours): array
     {
-        $schedule = ['dates' => []];
-        $workingHoursNormal = ['start' => '09:00', 'end' => '18:00'];
-        $workingHoursFriday = ['start' => '09:00', 'end' => '17:00']; // Сокращенная пятница
+        $breaks = [];
 
-        // Один обеденный перерыв 60 минут
-        $breaks = [
-            ['start' => '13:00', 'end' => '14:00']
-        ];
+        switch ($scheduleType) {
+            case '8h_normal':
+            case '8h_early':
+            case '8h_late':
+                // 1-2 перерыва для 8-часового дня
+                $breakCount = rand(1, 2);
+                $breaks = $this->generateBreaks($workingHours, $breakCount, 30, 60);
+                break;
 
-        for ($i = 0; $i < $daysCount; $i++) {
-            $date = $startDate->copy()->addDays($i);
-            $dateKey = $date->format('m-d');
-            $dayOfWeek = $date->dayOfWeek; // 0 (воскресенье) до 6 (суббота)
+            case '10h':
+                // 2-3 перерыва для 10-часового дня
+                $breakCount = rand(2, 3);
+                $breaks = $this->generateBreaks($workingHours, $breakCount, 15, 45);
+                break;
 
-            // Только будни (понедельник-пятница)
-            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-                $workingHours = ($dayOfWeek === 5) ? $workingHoursFriday : $workingHoursNormal;
+            case '12h':
+                // 3-4 перерыва для 12-часового дня
+                $breakCount = rand(3, 4);
+                $breaks = $this->generateBreaks($workingHours, $breakCount, 15, 60);
+                break;
 
-                $schedule['dates'][$dateKey] = [
-                    'working_hours' => $workingHours,
-                    'breaks' => $breaks,
-                ];
-            }
-            // Выходные (суббота, воскресенье) - не добавляем в расписание
+            case '24h':
+                // 4-6 перерывов для 24-часовой смены
+                $breakCount = rand(4, 6);
+                $breaks = $this->generate24hBreaks($breakCount);
+                break;
+
+            case '6h_short':
+                // 0-1 перерыв для короткого дня
+                $breakCount = rand(0, 1);
+                if ($breakCount > 0) {
+                    $breaks = $this->generateBreaks($workingHours, 1, 15, 30);
+                }
+                break;
         }
 
-        $this->info("Generated weekdays schedule: Mon-Thu 09:00-18:00, Fri 09:00-17:00");
-        return $schedule;
+        return $breaks;
     }
 
     /**
-     * Расписание: День через день по 12 часов
+     * Генерирует перерывы для обычного графика
      */
-    private function generateDayAfterDay12h($startDate, $daysCount): array
+    private function generateBreaks(array $workingHours, int $breakCount, int $minDuration, int $maxDuration): array
     {
-        $schedule = ['dates' => []];
+        $breaks = [];
+        $startHour = (int)explode(':', $workingHours['start'])[0];
+        $endHour = (int)explode(':', $workingHours['end'])[0];
 
-        // 12-часовая смена с двумя перерывами
-        $workingHours = ['start' => '08:00', 'end' => '20:00'];
-        $breaks = [
-            ['start' => '12:00', 'end' => '13:00'], // Обед 60 минут
-            ['start' => '16:00', 'end' => '16:30']  // Короткий перерыв 30 минут
-        ];
-
-        // Случайный первый рабочий день
-        $firstWorkingDay = rand(0, 1);
-
-        for ($i = 0; $i < $daysCount; $i++) {
-            // День через день (каждый второй день)
-            if (($i - $firstWorkingDay) % 2 === 0) {
-                $date = $startDate->copy()->addDays($i);
-                $dateKey = $date->format('m-d');
-
-                $schedule['dates'][$dateKey] = [
-                    'working_hours' => $workingHours,
-                    'breaks' => $breaks,
-                ];
-            }
-            // Выходные дни - не добавляем в расписание
+        // Для 24-часовой смены
+        if ($endHour <= $startHour) {
+            $endHour += 24;
         }
 
-        $this->info("Generated day-after-day schedule: 12-hour shifts (08:00-20:00)");
-        return $schedule;
-    }
+        $workDuration = $endHour - $startHour;
+        $interval = $workDuration / ($breakCount + 1);
 
-    /**
-     * Расписание: Сутки через двое (24 часа)
-     */
-    private function generate24hAfter48h($startDate, $daysCount): array
-    {
-        $schedule = ['dates' => []];
+        for ($i = 1; $i <= $breakCount; $i++) {
+            $breakStartHour = $startHour + ($interval * $i);
+            $breakDuration = rand($minDuration, $maxDuration);
 
-        // 24-часовая смена
-        $workingHours = ['start' => '08:00', 'end' => '08:00']; // Следующего дня
+            // Случайное смещение начала перерыва (±30 минут)
+            $breakStartOffset = rand(-30, 30);
+            $breakStartHour += $breakStartOffset / 60;
 
-        // 3-4 перерыва суммарно 2 часа
-        $breakCount = rand(3, 4);
-        $breaks = $this->generate24hBreaks($breakCount);
+            $breakStart = $this->minutesToTime($breakStartHour * 60);
+            $breakEnd = $this->minutesToTime(($breakStartHour * 60) + $breakDuration);
 
-        // Случайный первый рабочий день (0, 1 или 2)
-        $firstWorkingDay = rand(0, 2);
-
-        for ($i = 0; $i < $daysCount; $i++) {
-            // Сутки через двое (каждый третий день)
-            if (($i - $firstWorkingDay) % 3 === 0) {
-                $date = $startDate->copy()->addDays($i);
-                $dateKey = $date->format('m-d');
-
-                $schedule['dates'][$dateKey] = [
-                    'working_hours' => $workingHours,
-                    'breaks' => $breaks,
-                ];
-            }
-            // Выходные дни - не добавляем в расписание
+            $breaks[] = [
+                'start' => $breakStart,
+                'end' => $breakEnd,
+                'duration_minutes' => $breakDuration,
+            ];
         }
 
-        $this->info("Generated 24h-after-48h schedule: 24-hour shifts with {$breakCount} breaks");
-        return $schedule;
+        return $breaks;
     }
 
     /**
@@ -180,7 +177,7 @@ class GenerateDinamicTimetable extends Command
     private function generate24hBreaks(int $breakCount): array
     {
         $breaks = [];
-        $totalBreakMinutes = 120; // 2 часа суммарно
+        $totalBreakMinutes = 180; // 3 часа суммарно
         $breakDuration = (int)($totalBreakMinutes / $breakCount);
 
         // Равномерно распределяем перерывы по 24-часовой смене
@@ -191,23 +188,27 @@ class GenerateDinamicTimetable extends Command
             $breakStartMinutes = $interval * $i;
             $breakEndMinutes = $breakStartMinutes + $breakDuration;
 
-            // Преобразуем минуты в часы и минуты
-            $breakStartHour = 8 + (int)($breakStartMinutes / 60); // Начинаем с 8:00
-            $breakStartMinute = $breakStartMinutes % 60;
-
-            $breakEndHour = 8 + (int)($breakEndMinutes / 60);
-            $breakEndMinute = $breakEndMinutes % 60;
-
-            // Обрабатываем переход через сутки
-            $breakStartHour = $breakStartHour % 24;
-            $breakEndHour = $breakEndHour % 24;
+            $breakStart = $this->minutesToTime($breakStartMinutes);
+            $breakEnd = $this->minutesToTime($breakEndMinutes);
 
             $breaks[] = [
-                'start' => sprintf('%02d:%02d', $breakStartHour, $breakStartMinute),
-                'end' => sprintf('%02d:%02d', $breakEndHour, $breakEndMinute),
+                'start' => $breakStart,
+                'end' => $breakEnd,
+                'duration_minutes' => $breakDuration,
             ];
         }
 
         return $breaks;
+    }
+
+    /**
+     * Преобразует минуты в формат времени HH:MM
+     */
+    private function minutesToTime(int $totalMinutes): string
+    {
+        $hours = floor($totalMinutes / 60) % 24;
+        $minutes = $totalMinutes % 60;
+
+        return sprintf('%02d:%02d', $hours, $minutes);
     }
 }

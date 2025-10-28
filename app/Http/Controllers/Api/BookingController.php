@@ -7,7 +7,19 @@ use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\SlotGenerationService;
-use Illuminate\Http\Request;
+use App\Actions\CreateBookingAction;
+use App\Actions\ConfirmBookingAction;
+use App\Actions\CancelBookingAction;
+use App\Actions\RescheduleBookingAction;
+use App\Http\Requests\CreateBookingRequest;
+use App\Http\Requests\RescheduleBookingRequest;
+use App\Http\Requests\CancelBookingRequest;
+use App\Http\Requests\GetSlotsRequest;
+use App\Http\Requests/CheckAvailabilityRequest;
+use App\Http\Requests/GetResourceBookingsRequest;
+use App\Http\Resources\BookingResource;
+use App\Http\Resources\ResourceResource;
+use App\Http\Resources\SlotResource;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 
@@ -15,36 +27,21 @@ class BookingController extends Controller
 {
     public function __construct(
         private BookingService $bookingService,
-        private SlotGenerationService $slotService
+        private SlotGenerationService $slotService,
+        private CreateBookingAction $createBookingAction,
+        private ConfirmBookingAction $confirmBookingAction,
+        private CancelBookingAction $cancelBookingAction,
+        private RescheduleBookingAction $rescheduleBookingAction
     ) {}
 
     public function getResources(): JsonResponse
     {
-        $resources = Resource::with(['company', 'resourceType', 'timetable'])
-            ->get()
-            ->map(function ($resource) {
-                $config = $resource->getResourceConfig();
-                return [
-                    'id' => $resource->id,
-                    'name' => $resource->resourceType->name ?? 'Unknown',
-                    'type' => $resource->resourceType->type ?? 'unknown',
-                    'company_id' => $resource->company_id,
-                    'config' => $config->toArray(),
-                    'timetable' => $resource->getEffectiveTimetable(),
-                ];
-            });
-
-        return response()->json($resources);
+        $resources = Resource::with(['company', 'resourceType', 'timetable'])->get();
+        return response()->json(ResourceResource::collection($resources));
     }
 
-    public function getAvailableSlots($resourceId, Request $request): JsonResponse
+    public function getAvailableSlots($resourceId, GetSlotsRequest $request): JsonResponse
     {
-        $request->validate([
-            'date' => 'sometimes|date',
-            'count' => 'sometimes|integer|min:1|max:50',
-            'only_today' => 'sometimes|boolean'
-        ]);
-
         $resource = Resource::findOrFail($resourceId);
         $date = $request->get('date', now()->toDateString());
         $count = $request->get('count', 10);
@@ -53,34 +50,15 @@ class BookingController extends Controller
         $from = Carbon::parse($date);
         $slots = $this->bookingService->getNextAvailableSlots($resource, $from, $count, $onlyToday);
 
-        $formattedSlots = array_map(function ($slot) {
-            return [
-                'start' => $slot['start']->toDateTimeString(),
-                'end' => $slot['end']->toDateTimeString(),
-            ];
-        }, $slots);
-
-        return response()->json($formattedSlots);
+        return response()->json(SlotResource::collection($slots));
     }
 
-    public function createBooking(Request $request): JsonResponse
+    public function createBooking(CreateBookingRequest $request): JsonResponse
     {
-        $request->validate([
-            'resource_id' => 'required|exists:resources,id',
-            'start' => 'required|date',
-            'end' => 'required|date|after:start',
-            'booker' => 'sometimes|array',
-            'booker.external_id' => 'sometimes|string',
-            'booker.type' => 'sometimes|string',
-            'booker.name' => 'sometimes|string',
-            'booker.email' => 'sometimes|email',
-            'booker.phone' => 'sometimes|string',
-            'is_admin' => 'sometimes|boolean'
-        ]);
-
         try {
             $resource = Resource::findOrFail($request->resource_id);
-            $booking = $this->bookingService->createBooking(
+
+            $booking = $this->createBookingAction->execute(
                 $resource,
                 $request->start,
                 $request->end,
@@ -89,8 +67,7 @@ class BookingController extends Controller
             );
 
             return response()->json([
-                'id' => $booking->id,
-                'status' => $booking->status,
+                'data' => new BookingResource($booking),
                 'message' => $booking->status === 'pending'
                     ? 'Бронь создана и ожидает подтверждения'
                     : 'Бронь успешно создана и подтверждена'
@@ -106,11 +83,10 @@ class BookingController extends Controller
     public function confirmBooking($id): JsonResponse
     {
         try {
-            $booking = $this->bookingService->confirmBooking($id);
+            $booking = $this->confirmBookingAction->execute($id);
 
             return response()->json([
-                'id' => $booking->id,
-                'status' => $booking->status,
+                'data' => new BookingResource($booking),
                 'message' => 'Бронь успешно подтверждена'
             ]);
         } catch (\Exception $e) {
@@ -120,23 +96,17 @@ class BookingController extends Controller
         }
     }
 
-    public function cancelBooking($id, Request $request): JsonResponse
+    public function cancelBooking($id, CancelBookingRequest $request): JsonResponse
     {
-        $request->validate([
-            'cancelled_by' => 'sometimes|in:client,admin',
-            'reason' => 'sometimes|string|max:255'
-        ]);
-
         try {
-            $booking = $this->bookingService->cancelBooking(
+            $booking = $this->cancelBookingAction->execute(
                 $id,
                 $request->cancelled_by ?? 'client',
                 $request->reason
             );
 
             return response()->json([
-                'id' => $booking->id,
-                'status' => $booking->status,
+                'data' => new BookingResource($booking),
                 'message' => 'Бронь успешно отменена'
             ]);
         } catch (\Exception $e) {
@@ -146,16 +116,10 @@ class BookingController extends Controller
         }
     }
 
-    public function rescheduleBooking($id, Request $request): JsonResponse
+    public function rescheduleBooking($id, RescheduleBookingRequest $request): JsonResponse
     {
-        $request->validate([
-            'new_start' => 'required|date',
-            'new_end' => 'required|date|after:new_start',
-            'requested_by' => 'sometimes|in:client,admin'
-        ]);
-
         try {
-            $booking = $this->bookingService->rescheduleBooking(
+            $booking = $this->rescheduleBookingAction->execute(
                 $id,
                 $request->new_start,
                 $request->new_end,
@@ -163,11 +127,8 @@ class BookingController extends Controller
             );
 
             return response()->json([
-                'id' => $booking->id,
-                'status' => $booking->status,
-                'message' => 'Бронь успешно перенесена',
-                'start' => $booking->start,
-                'end' => $booking->end
+                'data' => new BookingResource($booking),
+                'message' => 'Бронь успешно перенесена'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -176,13 +137,8 @@ class BookingController extends Controller
         }
     }
 
-    public function getBookingsForResource($id, Request $request): JsonResponse
+    public function getBookingsForResource($id, GetResourceBookingsRequest $request): JsonResponse
     {
-        $request->validate([
-            'from' => 'required|date',
-            'to' => 'required|date|after:from'
-        ]);
-
         $resource = Resource::findOrFail($id);
         $bookings = $this->bookingService->getBookingsForResourceInRange(
             $resource,
@@ -190,18 +146,11 @@ class BookingController extends Controller
             $request->to
         );
 
-        return response()->json($bookings);
+        return response()->json(BookingResource::collection($bookings));
     }
 
-    public function checkSlotAvailability(Request $request): JsonResponse
+    public function checkSlotAvailability(CheckAvailabilityRequest $request): JsonResponse
     {
-        $request->validate([
-            'resource_id' => 'required|exists:resources,id',
-            'start' => 'required|date',
-            'end' => 'required|date|after:start',
-            'slots' => 'sometimes|integer|min:1'
-        ]);
-
         $resource = Resource::findOrFail($request->resource_id);
 
         if ($request->has('slots')) {
