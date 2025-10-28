@@ -1,202 +1,66 @@
-# Универсальная Система Бронирования на Laravel
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-## Описание проекта
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
-Проект представляет собой универсальную систему бронирования ресурсов с гибкой системой расписаний. Система позволяет управлять компаниями, типами ресурсов, ресурсами и их расписаниями через REST API.
+## About Laravel
 
-## Основные возможности
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-- **Управление компаниями** - создание и управление организациями
-- **Система расписаний** - поддержка статических и динамических расписаний
-- **Типы ресурсов** - категоризация ресурсов с общими настройками
-- **Ресурсы** - управление конкретными объектами бронирования
-- **REST API** - полный набор эндпоинтов для интеграции
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
-## Модели данных
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
-### Company (Компания)
-- Основная сущность для группировки ресурсов
-- Содержит базовую информацию об организации
+## Learning Laravel
 
-### Timetable (Расписание)
-- Поддерживает два типа: static (статическое) и dinamic (динамическое)
-- Static: расписание по дням недели с праздниками
-- dinamic: расписание по конкретным датам
-- Может быть привязано к ресурсам и типам ресурсов
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
 
-### ResourceType (Тип ресурса)
-- Определяет категорию ресурсов (например: "переговорная", "спортзал")
-- Содержит общие настройки для всех ресурсов этого типа
-- Может иметь собственное расписание
+You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
 
-### Resource (Ресурс)
-- Конкретный объект для бронирования
-- Наследует настройки от типа ресурса
-- Может переопределять настройки типа
-- Может иметь собственное расписание
+If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
 
-## Конфигурация ресурсов
+## Laravel Sponsors
 
-Каждый ресурс и тип ресурса содержит конфигурацию:
-- `slot_duration_minutes` - длительность слота в минутах
-- `max_participants` - максимальное количество участников
-- `require_confirmation` - требуется ли подтверждение
-- `slot_strategy` - стратегия слотов (fixed/dinamic)
+We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
 
-## Установка и настройка
+### Premium Partners
 
-### Требования
-- PHP 8.1+
-- Laravel 10+
-- MySQL 8.0+
-- Composer
+- **[Vehikl](https://vehikl.com/)**
+- **[Tighten Co.](https://tighten.co)**
+- **[WebReinvent](https://webreinvent.com/)**
+- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
+- **[64 Robots](https://64robots.com)**
+- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
+- **[Cyber-Duck](https://cyber-duck.co.uk)**
+- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
+- **[Jump24](https://jump24.co.uk)**
+- **[Redberry](https://redberry.international/laravel/)**
+- **[Active Logic](https://activelogic.com)**
+- **[byte5](https://byte5.de)**
+- **[OP.GG](https://op.gg)**
 
-### Установка
+## Contributing
 
-1. Установите зависимости:
-composer install
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-2. Настройте файл окружения:
-cp .env.example .env
-php artisan key:generate
+## Code of Conduct
 
-3. Настройте базу данных в .env:
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=8006
-DB_DATABASE=booking
-DB_USERNAME=booking
-DB_PASSWORD=booking
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-4. Запустите миграции:
-php artisan migrate
+## Security Vulnerabilities
 
-### Запуск с Docker
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
-Проект включает Docker конфигурацию для быстрого развертывания:
+## License
 
-Запуск контейнеров:
-docker-compose up -d
-
-Остановка контейнеров:
-docker-compose down
-
-Контейнеры предоставляют:
-- MySQL на порту 8006
-- phpMyAdmin на порту 8093
-
-### Генерация тестовых данных
-
-Используйте Artisan команды для создания тестовых расписаний:
-
-Статическое расписание:
-php artisan timetable:generate-static 1
-
-Динамическое расписание на 30 дней:
-php artisan timetable:generate-dinamic 1 30
-
-## API Endpoints
-
-### Компании
-- GET /api/companies - список компаний
-- POST /api/companies - создание компании
-- GET /api/companies/{id} - получение компании
-- PUT /api/companies/{id} - обновление компании
-- DELETE /api/companies/{id} - удаление компании
-
-### Расписания
-- GET /api/timetables - список расписаний
-- POST /api/timetables - создание расписания
-- GET /api/timetables/{id} - получение расписания
-- PUT /api/timetables/{id} - обновление расписания
-- DELETE /api/timetables/{id} - удаление расписания
-
-### Типы ресурсов
-- GET /api/resource-types - список типов ресурсов
-- POST /api/resource-types - создание типа ресурса
-- GET /api/resource-types/{id} - получение типа ресурса
-- PUT /api/resource-types/{id} - обновление типа ресурса
-- DELETE /api/resource-types/{id} - удаление типа ресурса
-
-### Ресурсы
-- GET /api/resources - список ресурсов
-- POST /api/resources - создание ресурса
-- GET /api/resources/{id} - получение ресурса
-- PUT /api/resources/{id} - обновление ресурса
-- DELETE /api/resources/{id} - удаление ресурса
-
-### Дополнительные эндпоинты для расписаний
-- POST /api/timetables/{id}/attach-resource - прикрепить ресурс к расписанию
-- POST /api/timetables/{id}/detach-resource - открепить ресурс от расписания
-- POST /api/timetables/{id}/attach-resource-type - прикрепить тип ресурса к расписанию
-- POST /api/timetables/{id}/detach-resource-type - открепить тип ресурса от расписания
-
-## Примеры использования API
-
-### Создание статического расписания
-POST /api/timetables
-{
-  "company_id": 1,
-  "type": "static",
-  "schedule": {
-    "days": {
-      "monday": {
-        "working_hours": {
-          "start": "09:00",
-          "end": "18:00"
-        },
-        "breaks": [
-          {
-            "start": "13:00",
-            "end": "14:00"
-          }
-        ]
-      }
-    },
-    "holidays": ["01-01", "03-08"]
-  }
-}
-
-### Создание типа ресурса
-POST /api/resource-types
-{
-  "company_id": 1,
-  "type": "meeting_room",
-  "name": "Meeting Room",
-  "description": "Conference room for meetings",
-  "resource_config": {
-    "slot_duration_minutes": 60,
-    "max_participants": 10,
-    "require_confirmation": false,
-    "slot_strategy": "fixed"
-  }
-}
-
-## Структура проекта
-
-- app/Models/ - Модели Eloquent
-- app/Http/Controllers/ - Контроллеры API
-- app/Http/Requests/ - Валидация запросов
-- app/Http/Resources/ - Ресурсы для API ответов
-- app/Actions/ - Бизнес-логика
-- app/Enums/ - Перечисления
-- app/ValueObjects/ - Объекты-значения
-- app/Console/Commands/ - Artisan команды
-
-## Тестирование
-
-Для тестирования API используйте Postman коллекцию, расположенную в:
-storage/app/exports/booking_system_postman_collection.json
-
-## Дальнейшее развитие
-
-- Система бронирования слотов
-- Календарь доступности
-- Уведомления и напоминания
-- Система платежей
-- Мультитенантность
-- Панель администратора
-
-## Лицензия
-
-Проект распространяется под MIT License.
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
