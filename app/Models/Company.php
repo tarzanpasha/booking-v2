@@ -10,11 +10,10 @@ class Company extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'id',
-        'name',
-        'description',
-    ];
+    public $incrementing = false; // Отключаем автоинкремент
+    protected $keyType = 'integer'; // Тип ключа
+
+    protected $fillable = ['id', 'name', 'description'];
 
     public function timetables(): HasMany
     {
