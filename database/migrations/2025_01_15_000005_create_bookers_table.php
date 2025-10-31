@@ -24,9 +24,10 @@ return new class extends Migration
         Schema::create('bookables', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booker_id')->constrained()->cascadeOnDelete();
-            $table->morphs('bookable');
+            $table->morphs('bookable'); // Это создаст bookable_id и bookable_type
             $table->timestamps();
 
+            $table->unique(['booker_id', 'bookable_id', 'bookable_type']);
         });
     }
 

@@ -19,7 +19,7 @@ class CreateBookingRequest extends FormRequest
             'end' => 'required|date|after:start',
             'booker' => 'sometimes|array',
             'booker.external_id' => 'sometimes|string',
-            'booker.type' => 'sometimes|string',
+            'booker.type' => 'required|in:client,admin,employee',
             'booker.name' => 'sometimes|string',
             'booker.email' => 'sometimes|email',
             'booker.phone' => 'sometimes|string',
