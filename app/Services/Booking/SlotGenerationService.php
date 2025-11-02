@@ -10,6 +10,19 @@ use Carbon\CarbonPeriod;
 
 class SlotGenerationService
 {
+
+    private function transformDaySlots(array $daySlots): array
+    {
+        return collect($daySlots)
+            ->map(function ($slot) {
+                return [
+                    'start' => $slot['start']->format('H:i'),
+                    'end' => $slot['end']->format('H:i'),
+                ];
+            })
+            ->toArray();
+    }
+
     public function getNextAvailableSlots(
         Resource $resource,
         Carbon $from = null,
@@ -23,6 +36,8 @@ class SlotGenerationService
 
         while (count($slots) < $count) {
             $daySlots = $this->generateSlotsForDate($resource, $currentDate);
+
+            $daySlotsTransformed = $this->transformDaySlots($daySlots);
 
             foreach ($daySlots as $slot) {
                 if (count($slots) >= $count) break;
@@ -55,15 +70,18 @@ class SlotGenerationService
 
     private function generateFixedSlots(Resource $resource, Carbon $date, $timetable, ResourceConfig $config): array
     {
-        $workingHours = $this->getWorkingHoursForDate($timetable, $date);
-        if (!$workingHours) return [];
+        $currentDate = $this->getWorkingHoursForDate($timetable, $date);
+        if (!$currentDate) return [];
+
+        $workingHours = $currentDate['working_hours'];
+
 
         $slots = [];
         $slotDuration = $config->slot_duration_minutes;
 
         $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['start']);
         $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['end']);
-        $breaks = $workingHours['breaks'] ?? [];
+        $breaks = $currentDate['breaks'] ?? [];
 
         $current = $startTime->copy();
 
