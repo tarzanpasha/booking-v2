@@ -24,14 +24,6 @@ class DemoBookingScenarios extends Command
     private int $currentCompanyId;
     private int $currentResourceId;
 
-    /**
-     * Конструктор команды с внедрением зависимостей
-     *
-     * @param CreateOrUpdateCompanyAction $createCompanyAction - Действие создания/обновления компании
-     * @param CreateTimetableFromJsonAction $createTimetableAction - Действие создания расписания из JSON
-     * @param StoreResourceTypeAction $storeResourceTypeAction - Действие создания типа ресурса
-     * @param StoreResourceAction $storeResourceAction - Действие создания ресурса
-     */
     public function __construct(
         private CreateOrUpdateCompanyAction $createCompanyAction,
         private CreateTimetableFromJsonAction $createTimetableAction,
@@ -41,11 +33,6 @@ class DemoBookingScenarios extends Command
         parent::__construct();
     }
 
-    /**
-     * Основной метод выполнения команды
-     *
-     * @return int
-     */
     public function handle(): int
     {
         $this->baseUrl = config('app.url') . '/api';
@@ -69,11 +56,6 @@ class DemoBookingScenarios extends Command
         return 0;
     }
 
-    /**
-     * Показать список доступных сценариев
-     *
-     * @return int
-     */
     private function showScenarios(): int
     {
         $this->info('Доступные демонстрационные сценарии:');
@@ -97,11 +79,6 @@ class DemoBookingScenarios extends Command
         return 0;
     }
 
-    /**
-     * Получить список сценариев для запуска
-     *
-     * @return array
-     */
     private function getScenariosToRun(): array
     {
         if ($this->option('all')) {
@@ -132,12 +109,6 @@ class DemoBookingScenarios extends Command
         return $choice === 'all' ? range(1, 8) : [explode('.', $choice)[0]];
     }
 
-    /**
-     * Запустить конкретный сценарий
-     *
-     * @param int $scenarioId - ID сценария (1-8)
-     * @return void
-     */
     private function runScenario(int $scenarioId): void
     {
         $this->info("\n🎬 Запуск сценария {$scenarioId}");
@@ -145,7 +116,6 @@ class DemoBookingScenarios extends Command
 
         BookingLoggerService::info("Начало сценария {$scenarioId}", ['scenario_id' => $scenarioId]);
 
-        // Очистка и настройка
         $this->cleanupScenarioData($scenarioId);
         $setupData = $this->setupScenario($scenarioId);
 
@@ -157,10 +127,11 @@ class DemoBookingScenarios extends Command
 
         $this->currentResourceId = $setupData['resource_id'];
 
-        // Выполнение сценария
         $method = "runScenario{$scenarioId}";
         if (method_exists($this, $method)) {
             $this->$method($setupData);
+        } else {
+            $this->error("Метод {$method} не реализован");
         }
 
         $this->info("✅ Сценарий {$scenarioId} завершен");
@@ -172,19 +143,12 @@ class DemoBookingScenarios extends Command
         ]);
     }
 
-    /**
-     * Настроить данные для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return array|null - Данные настройки или null при ошибке
-     */
     private function setupScenario(int $scenarioId): ?array
     {
         $this->info("Настройка сценария {$scenarioId}...");
 
         $companyId = $scenarioId * 100;
 
-        // Создание компании через Action
         $company = $this->createCompanyAction->execute(
             $companyId,
             "Демо компания {$scenarioId}"
@@ -192,7 +156,6 @@ class DemoBookingScenarios extends Command
 
         $this->currentCompanyId = $company->id;
 
-        // Создание расписания через Action
         $timetableData = $this->getTimetableForScenario($scenarioId);
         $timetable = $this->createTimetableAction->execute(
             $company->id,
@@ -200,7 +163,6 @@ class DemoBookingScenarios extends Command
             $timetableData['type']
         );
 
-        // Создание типа ресурса через Action
         $resourceTypeConfig = $this->getResourceConfigForScenario($scenarioId);
         $resourceTypeData = [
             'company_id' => $company->id,
@@ -213,7 +175,6 @@ class DemoBookingScenarios extends Command
 
         $resourceType = $this->storeResourceTypeAction->execute($resourceTypeData);
 
-        // Создание ресурса через Action
         $resourceData = [
             'company_id' => $company->id,
             'timetable_id' => $timetable->id,
@@ -247,9 +208,6 @@ class DemoBookingScenarios extends Command
 
     /**
      * СЦЕНАРИЙ 1: Парикмахерская - Фиксированные слоты + автоматическое подтверждение (усложненный)
-     *
-     * @param array $setupData - Данные настройки сценария
-     * @return void
      */
     private function runScenario1(array $setupData): void
     {
@@ -266,7 +224,6 @@ class DemoBookingScenarios extends Command
         $slots = $this->getSlots($resourceId, '2024-01-15', 8);
         $this->info("Доступные слоты: " . count($slots));
         $this->info("Примеры: " . implode(', ', array_slice($slots, 0, 3)));
-        BookingLoggerService::info("Получены слоты для Сценария 1", ['slot_count' => count($slots)]);
 
         // Шаг 2: Создать бронь на последний слот до перерыва
         $this->info("\n✅ Шаг 2: Бронь последнего слота до перерыва...");
@@ -277,7 +234,6 @@ class DemoBookingScenarios extends Command
             'booker' => ['name' => 'Анна Иванова', 'email' => 'anna@example.com']
         ]);
         $this->checkStatus($booking1, 'confirmed', "Бронь авто-подтверждена");
-        BookingLoggerService::info("Бронь создана на последний слот до перерыва", ['booking_id' => $booking1['id']]);
 
         // Шаг 3: Попытка брони с пересечением перерыва
         $this->info("\n❌ Шаг 3: Попытка брони с пересечением перерыва...");
@@ -291,7 +247,6 @@ class DemoBookingScenarios extends Command
             $this->error("НЕОЖИДАННО: Должно было быть ошибкой!");
         } catch (\Exception $e) {
             $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
-            BookingLoggerService::warning("Конфликт бронирования с перерывом предотвращен", ['error' => $e->getMessage()]);
         }
 
         // Шаг 4: Бронь первого слота после перерыва
@@ -303,78 +258,25 @@ class DemoBookingScenarios extends Command
             'booker' => ['name' => 'Петр Сидоров']
         ]);
         $this->checkStatus($booking2, 'confirmed', "Бронь после перерыва создана");
-        BookingLoggerService::info("Бронь создана на первый слот после перерыва", ['booking_id' => $booking2['id']]);
 
         // Шаг 5: Проверка доступности пограничных слотов
         $this->info("\n🔍 Шаг 5: Проверка пограничных случаев...");
         $this->testBoundaryCases($resourceId);
 
-        // Шаг 6: Проверка обновленных слотов
-        $this->info("\n📅 Шаг 6: Проверка обновленных слотов...");
-        $updatedSlots = $this->getSlots($resourceId, '2024-01-15', 8);
-        $this->info("Доступные слоты после броней: " . count($updatedSlots));
-
-        // Шаг 7: Отмена брони
-        $this->info("\n🔄 Шаг 7: Отмена брони...");
+        // Шаг 6: Отмена брони
+        $this->info("\n🔄 Шаг 6: Отмена брони...");
         $canceledBooking = $this->cancelBooking($booking1['id'], 'client', 'Планы изменились');
         $this->checkStatus($canceledBooking, 'cancelled_by_client', "Бронь отменена клиентом");
-        BookingLoggerService::info("Бронь отменена клиентом", ['booking_id' => $booking1['id']]);
 
-        // Шаг 8: Перенос брони
-        $this->info("\n🔄 Шаг 8: Перенос брони...");
+        // Шаг 7: Перенос брони
+        $this->info("\n🔄 Шаг 7: Перенос брони...");
         $rescheduled = $this->rescheduleBooking($booking2['id'],
             '2024-01-15 15:15:00', '2024-01-15 16:15:00', 'client');
         $this->info("✅ Бронь перенесена: {$rescheduled['start']} → {$rescheduled['end']}");
-        BookingLoggerService::info("Бронь успешно перенесена", [
-            'booking_id' => $booking2['id'],
-            'new_time' => $rescheduled['start'] . ' - ' . $rescheduled['end']
-        ]);
-    }
-
-    /**
-     * Тестирование пограничных случаев с перерывами
-     *
-     * @param int $resourceId - ID ресурса
-     * @return void
-     */
-    private function testBoundaryCases(int $resourceId): void
-    {
-        $testCases = [
-            ['start' => '2024-01-15 13:00:00', 'end' => '2024-01-15 14:00:00', 'expected' => false, 'reason' => 'Полностью внутри перерыва'],
-            ['start' => '2024-01-15 12:30:00', 'end' => '2024-01-15 13:30:00', 'expected' => false, 'reason' => 'Начинается до, заканчивается во время перерыва'],
-            ['start' => '2024-01-15 13:45:00', 'end' => '2024-01-15 14:45:00', 'expected' => false, 'reason' => 'Начинается во время, заканчивается после перерыва'],
-            ['start' => '2024-01-15 14:15:00', 'end' => '2024-01-15 15:15:00', 'expected' => true, 'reason' => 'Корректный слот после перерыва'],
-            ['start' => '2024-01-15 11:00:00', 'end' => '2024-01-15 12:00:00', 'expected' => true, 'reason' => 'Корректный слот до перерыва'],
-        ];
-
-        foreach ($testCases as $case) {
-            try {
-                $available = $this->isRangeAvailable($resourceId, $case['start'], $case['end']);
-                $status = $available === $case['expected'] ? '✅' : '❌';
-                $this->info("{$status} {$case['reason']}: " . ($available ? 'доступен' : 'недоступен'));
-
-                if ($available !== $case['expected']) {
-                    BookingLoggerService::warning("Неожиданный результат пограничного случая", [
-                        'case' => $case['reason'],
-                        'expected' => $case['expected'],
-                        'actual' => $available
-                    ]);
-                }
-            } catch (\Exception $e) {
-                $this->info("❌ {$case['reason']}: ошибка - {$e->getMessage()}");
-                BookingLoggerService::error("Ошибка при проверке пограничного случая", [
-                    'case' => $case['reason'],
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
     }
 
     /**
      * СЦЕНАРИЙ 2: Переговорная комната - Динамические слоты + ручное подтверждение
-     *
-     * @param array $setupData - Данные настройки сценария
-     * @return void
      */
     private function runScenario2(array $setupData): void
     {
@@ -383,8 +285,6 @@ class DemoBookingScenarios extends Command
         $this->info("\n🏢 СЦЕНАРИЙ 2: Переговорная комната");
         $this->line("Параметры: ручное подтверждение, динамические слоты, длительность 30 мин");
         $this->line("Тестирование: ручное подтверждение, динамические слоты, права администратора");
-
-        BookingLoggerService::info("Начало Сценария 2: Переговорная комната");
 
         // Шаг 1: Администратор создает бронь вне расписания
         $this->info("\n👨‍💼 Шаг 1: Администратор создает бронь вне расписания...");
@@ -396,7 +296,6 @@ class DemoBookingScenarios extends Command
             'booker' => ['name' => 'Администратор', 'type' => 'admin']
         ]);
         $this->checkStatus($adminBooking, 'confirmed', "Бронь администратора авто-подтверждена");
-        BookingLoggerService::info("Админ создал бронь с обходом ограничений", ['booking_id' => $adminBooking['id']]);
 
         // Шаг 2: Пользователь создает бронь (ожидает подтверждения)
         $this->info("\n👤 Шаг 2: Пользователь создает бронь (требует подтверждения)...");
@@ -407,7 +306,6 @@ class DemoBookingScenarios extends Command
             'booker' => ['name' => 'Петр Сидоров', 'email' => 'peter@example.com']
         ]);
         $this->checkStatus($userBooking, 'pending', "Бронь пользователя ожидает подтверждения");
-        BookingLoggerService::info("Бронь пользователя создана и ожидает подтверждения", ['booking_id' => $userBooking['id']]);
 
         // Шаг 3: Проверить слоты с учетом pending брони
         $this->info("\n📅 Шаг 3: Проверка слотов с учетом ожидающей брони...");
@@ -418,12 +316,10 @@ class DemoBookingScenarios extends Command
         $this->info("\n✅ Шаг 4: Подтверждение брони администратором...");
         $confirmedBooking = $this->confirmBooking($userBooking['id']);
         $this->checkStatus($confirmedBooking, 'confirmed', "Бронь подтверждена администратором");
-        BookingLoggerService::info("Бронь подтверждена администратором", ['booking_id' => $userBooking['id']]);
 
         // Шаг 5: Попытка отмены просроченной брони
         $this->info("\n❌ Шаг 5: Попытка поздней отмены...");
         try {
-            // Создаем бронь в прошлом для теста отмены
             $pastBooking = $this->createBooking([
                 'resource_id' => $resourceId,
                 'start' => '2024-01-10 10:00:00',
@@ -436,15 +332,238 @@ class DemoBookingScenarios extends Command
             $this->error("НЕОЖИДАННО: Должно было быть ошибкой для поздней отмены!");
         } catch (\Exception $e) {
             $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
-            BookingLoggerService::warning("Поздняя отмена предотвращена", ['error' => $e->getMessage()]);
         }
     }
 
     /**
+     * СЦЕНАРИЙ 3: Групповая тренировка - Фиксированные слоты + групповые брони
+     */
+    private function runScenario3(array $setupData): void
+    {
+        $resourceId = $setupData['resource_id'];
+
+        $this->info("\n🏋️ СЦЕНАРИЙ 3: Групповая тренировка");
+        $this->line("Параметры: групповой ресурс, фиксированные слоты 90 мин, лимит 10 участников");
+        $this->line("Тестирование: групповые брони, лимит участников, множественные bookers");
+
+        // Шаг 1: Получить доступные слоты для групповой тренировки
+        $this->info("\n📅 Шаг 1: Получение доступных слотов для групповой тренировки...");
+        $slots = $this->getSlots($resourceId, '2024-01-17', 5);
+        $this->info("Доступные слоты: " . count($slots));
+
+        // Шаг 2: Создать групповую бронь с несколькими участниками
+        $this->info("\n👥 Шаг 2: Создание групповой брони с участниками...");
+        $groupBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-17 10:00:00',
+            'end' => '2024-01-17 11:30:00',
+            'booker' => [
+                'name' => 'Организатор тренировки',
+                'email' => 'organizer@example.com',
+                'type' => 'client',
+                'metadata' => ['is_organizer' => true]
+            ]
+        ]);
+        $this->checkStatus($groupBooking, 'confirmed', "Групповая бронь создана");
+
+        // Шаг 3: Добавить дополнительных участников к брони
+        $this->info("\n👥 Шаг 3: Добавление участников в групповую бронь...");
+        $this->addParticipantsToBooking($groupBooking['id'], [
+            ['name' => 'Участник 1', 'email' => 'user1@example.com'],
+            ['name' => 'Участник 2', 'email' => 'user2@example.com'],
+            ['name' => 'Участник 3', 'email' => 'user3@example.com'],
+        ]);
+
+        // Шаг 4: Попытка превысить лимит участников
+        $this->info("\n❌ Шаг 4: Попытка превысить лимит участников...");
+        try {
+            $this->addParticipantsToBooking($groupBooking['id'], [
+                ['name' => 'Лишний участник', 'email' => 'extra@example.com'],
+            ]);
+            $this->error("НЕОЖИДАННО: Должно было быть ошибкой!");
+        } catch (\Exception $e) {
+            $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
+        }
+
+        // Шаг 5: Проверка доступности после групповой брони
+        $this->info("\n📅 Шаг 5: Проверка доступности слотов после групповой брони...");
+        $updatedSlots = $this->getSlots($resourceId, '2024-01-17', 5);
+        $this->info("Доступные слоты после брони: " . count($updatedSlots));
+    }
+
+    /**
+     * СЦЕНАРИЙ 4: Дорогое оборудование - Динамические слоты + строгие ограничения
+     */
+    private function runScenario4(array $setupData): void
+    {
+        $resourceId = $setupData['resource_id'];
+
+        $this->info("\n💎 СЦЕНАРИЙ 4: Дорогое оборудование");
+        $this->line("Параметры: строгие ограничения, динамические слоты 120 мин, подтверждение обязательно");
+        $this->line("Тестирование: строгие правила отмены, минимальное время брони, подтверждение");
+
+        // Шаг 1: Попытка брони без достаточного времени
+        $this->info("\n❌ Шаг 1: Попытка брони без достаточного времени...");
+        try {
+            $this->createBooking([
+                'resource_id' => $resourceId,
+                'start' => now()->addMinutes(30)->format('Y-m-d H:i:s'),
+                'end' => now()->addMinutes(150)->format('Y-m-d H:i:s'),
+                'booker' => ['name' => 'Торопливый клиент']
+            ]);
+            $this->error("НЕОЖИДАННО: Должно было быть ошибкой!");
+        } catch (\Exception $e) {
+            $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
+        }
+
+        // Шаг 2: Корректная бронь с ожиданием подтверждения
+        $this->info("\n⏳ Шаг 2: Корректная бронь с ожиданием подтверждения...");
+        $pendingBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-18 10:00:00',
+            'end' => '2024-01-18 12:00:00',
+            'booker' => ['name' => 'Серьезный клиент', 'email' => 'serious@example.com']
+        ]);
+        $this->checkStatus($pendingBooking, 'pending', "Бронь ожидает подтверждения");
+
+        // Шаг 3: Отклонение брони администратором
+        $this->info("\n❌ Шаг 3: Отклонение брони администратором...");
+        $rejectedBooking = $this->cancelBooking($pendingBooking['id'], 'admin', 'Оборудование на обслуживании');
+        $this->checkStatus($rejectedBooking, 'cancelled_by_admin', "Бронь отклонена администратором");
+
+        // Шаг 4: Бронь администратором с обходом ограничений
+        $this->info("\n👨‍💼 Шаг 4: Бронь администратором с обходом ограничений...");
+        $adminBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => now()->addMinutes(60)->format('Y-m-d H:i:s'),
+            'end' => now()->addMinutes(180)->format('Y-m-d H:i:s'),
+            'is_admin' => true,
+            'booker' => ['name' => 'Администратор', 'type' => 'admin']
+        ]);
+        $this->checkStatus($adminBooking, 'confirmed', "Бронь администратора подтверждена");
+
+        // Шаг 5: Попытка отмены в последний момент
+        $this->info("\n❌ Шаг 5: Попытка отмены в последний момент...");
+        try {
+            $this->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
+            $this->error("НЕОЖИДАННО: Должно было быть ошибкой!");
+        } catch (\Exception $e) {
+            $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * СЦЕНАРИЙ 5: Гостиничный номер - Переходящие брони + разные стратегии
+     */
+    private function runScenario5(array $setupData): void
+    {
+        $resourceId = $setupData['resource_id'];
+
+        $this->info("\n🏨 СЦЕНАРИЙ 5: Гостиничный номер");
+        $this->line("Параметры: переходящие брони, многодневные, фиксированные слоты 24 часа");
+        $this->line("Тестирование: брони на несколько дней, проверка пересечений дат");
+
+        // Шаг 1: Бронь на 3 дня
+        $this->info("\n📅 Шаг 1: Бронь номера на 3 дня...");
+        $threeDayBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-20 14:00:00',
+            'end' => '2024-01-23 12:00:00',
+            'booker' => ['name' => 'Гость отеля', 'email' => 'guest@example.com']
+        ]);
+        $this->checkStatus($threeDayBooking, 'confirmed', "Бронь на 3 дня создана");
+
+        // Шаг 2: Попытка брони в пересекающиеся даты
+        $this->info("\n❌ Шаг 2: Попытка брони в пересекающиеся даты...");
+        try {
+            $this->createBooking([
+                'resource_id' => $resourceId,
+                'start' => '2024-01-22 10:00:00', // Пересекается с существующей бронью
+                'end' => '2024-01-24 12:00:00',
+                'booker' => ['name' => 'Конфликтный гость']
+            ]);
+            $this->error("НЕОЖИДАННО: Должно было быть ошибкой!");
+        } catch (\Exception $e) {
+            $this->info("✅ Ожидаемая ошибка: {$e->getMessage()}");
+        }
+
+        // Шаг 3: Бронь сразу после освобождения номера
+        $this->info("\n✅ Шаг 3: Бронь сразу после освобождения номера...");
+        $nextBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-23 14:00:00', // После предыдущей брони
+            'end' => '2024-01-25 12:00:00',
+            'booker' => ['name' => 'Следующий гость']
+        ]);
+        $this->checkStatus($nextBooking, 'confirmed', "Бронь после освобождения создана");
+
+        // Шаг 4: Проверка доступности в диапазоне дат
+        $this->info("\n📅 Шаг 4: Проверка доступности в диапазоне дат...");
+        $this->testDateRangeAvailability($resourceId);
+
+        // Шаг 5: Перенос длительной брони
+        $this->info("\n🔄 Шаг 5: Перенос длительной брони...");
+        $rescheduled = $this->rescheduleBooking($threeDayBooking['id'],
+            '2024-01-25 14:00:00', '2024-01-28 12:00:00', 'admin');
+        $this->info("✅ Длительная бронь перенесена: {$rescheduled['start']} → {$rescheduled['end']}");
+    }
+
+    /**
+     * СЦЕНАРИЙ 6: Экстренный случай - Администратор vs Пользователь
+     */
+    private function runScenario6(array $setupData): void
+    {
+        $resourceId = $setupData['resource_id'];
+
+        $this->info("\n⚡ СЦЕНАРИЙ 6: Экстренный случай");
+        $this->line("Параметры: приоритет администратора, экстренные отмены, перепланирование");
+        $this->line("Тестирование: права администратора, экстренные операции, приоритеты");
+
+        // Шаг 1: Пользователь создает обычную бронь
+        $this->info("\n👤 Шаг 1: Пользователь создает обычную бронь...");
+        $userBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-19 15:00:00',
+            'end' => '2024-01-19 16:00:00',
+            'booker' => ['name' => 'Обычный пользователь']
+        ]);
+        $this->checkStatus($userBooking, 'confirmed', "Бронь пользователя создана");
+
+        // Шаг 2: Администратор создает экстренную бронь поверх существующей
+        $this->info("\n👨‍💼 Шаг 2: Администратор создает экстренную бронь...");
+        $emergencyBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-19 15:00:00', // То же время что и у пользователя
+            'end' => '2024-01-19 16:00:00',
+            'is_admin' => true,
+            'booker' => ['name' => 'Администратор', 'type' => 'admin']
+        ]);
+        $this->checkStatus($emergencyBooking, 'confirmed', "Экстренная бронь администратора создана");
+
+        // Шаг 3: Проверка что пользовательская бронь была автоматически отменена
+        $this->info("\n🔍 Шаг 3: Проверка статуса пользовательской брони...");
+        $updatedUserBooking = $this->getBooking($userBooking['id']);
+        $this->checkStatus($updatedUserBooking, 'cancelled_by_admin', "Бронь пользователя автоматически отменена");
+
+        // Шаг 4: Администратор переносит экстренную бронь
+        $this->info("\n🔄 Шаг 4: Администратор переносит экстренную бронь...");
+        $rescheduledEmergency = $this->rescheduleBooking($emergencyBooking['id'],
+            '2024-01-19 16:00:00', '2024-01-19 17:00:00', 'admin');
+        $this->info("✅ Экстренная бронь перенесена: {$rescheduledEmergency['start']} → {$rescheduledEmergency['end']}");
+
+        // Шаг 5: Восстановление пользовательской брони
+        $this->info("\n✅ Шаг 5: Восстановление пользовательской брони...");
+        $restoredBooking = $this->createBooking([
+            'resource_id' => $resourceId,
+            'start' => '2024-01-19 15:00:00', // Освободившееся время
+            'end' => '2024-01-19 16:00:00',
+            'booker' => ['name' => 'Обычный пользователь']
+        ]);
+        $this->checkStatus($restoredBooking, 'confirmed', "Бронь пользователя восстановлена");
+    }
+
+    /**
      * СЦЕНАРИЙ 7: Салон красоты - Статическое расписание с праздниками
-     *
-     * @param array $setupData - Данные настройки сценария
-     * @return void
      */
     private function runScenario7(array $setupData): void
     {
@@ -453,8 +572,6 @@ class DemoBookingScenarios extends Command
         $this->info("\n💅 СЦЕНАРИЙ 7: Салон красоты");
         $this->line("Параметры: Статическое расписание с праздниками, фиксированные слоты");
         $this->line("Тестирование: Обнаружение праздников, обработка выходных, время перерывов");
-
-        BookingLoggerService::info("Начало Сценария 7: Салон красоты с праздниками");
 
         $testDates = [
             '2024-01-15' => ['type' => 'working', 'desc' => 'Рабочий понедельник'],
@@ -472,16 +589,10 @@ class DemoBookingScenarios extends Command
             if ($info['type'] === 'working' && count($slots) > 0) {
                 $this->info("✅ {$info['desc']}: " . count($slots) . " слотов доступно");
                 $this->line("   Первые слоты: " . implode(', ', array_slice($slots, 0, 2)));
-                BookingLoggerService::info("Рабочий день: слоты доступны", [
-                    'date' => $date,
-                    'slot_count' => count($slots)
-                ]);
             } elseif ($info['type'] === 'working') {
                 $this->error("❌ {$info['desc']}: Нет доступных слотов (НЕОЖИДАННО)");
-                BookingLoggerService::error("Рабочий день без слотов", ['date' => $date]);
             } else {
                 $this->info("✅ {$info['desc']}: Нет слотов (ожидаемо)");
-                BookingLoggerService::info("Выходной/праздник: слотов нет", ['date' => $date, 'type' => $info['type']]);
             }
         }
 
@@ -499,171 +610,127 @@ class DemoBookingScenarios extends Command
 
         if ($hasBreakGap) {
             $this->info("✅ Перерывы правильно исключены из слотов");
-            BookingLoggerService::info("Перерывы корректно обработаны в расписании");
         } else {
             $this->error("❌ Перерывы неправильно обработаны");
-            BookingLoggerService::warning("Возможная проблема с обработкой перерывов");
         }
     }
 
-    // 🔧 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ API ВЫЗОВОВ
-
     /**
-     * Получить доступные слоты для ресурса
-     *
-     * @param int $resourceId - ID ресурса
-     * @param string $date - Дата в формате YYYY-MM-DD
-     * @param int $count - Количество слотов
-     * @return array - Массив слотов в формате ['start-end', ...]
+     * СЦЕНАРИЙ 8: Бизнес-центр - Смешанное расписание + перерывы
      */
-    private function getSlots(int $resourceId, string $date, int $count): array
+    private function runScenario8(array $setupData): void
     {
-        $response = Http::get("{$this->baseUrl}/booking/{$resourceId}/slots", [
-            'date' => $date,
-            'count' => $count
-        ]);
+        $resourceId = $setupData['resource_id'];
 
-        if ($response->successful()) {
-            return array_map(function($slot) {
-                return $slot['start'] . '-' . $slot['end'];
-            }, $response->json()['data'] ?? []);
-        }
+        $this->info("\n🏢 СЦЕНАРИЙ 8: Бизнес-центр");
+        $this->line("Параметры: Сложное расписание с множественными перерывами, динамические слоты");
+        $this->line("Тестирование: Множественные перерывы, сложное расписание, динамические слоты");
 
-        return [];
-    }
+        // Шаг 1: Получить слоты в день со сложным расписанием
+        $this->info("\n📅 Шаг 1: Получение слотов в день со сложным расписанием...");
+        $slots = $this->getSlots($resourceId, '2024-01-22', 10);
+        $this->info("Доступные слоты: " . count($slots));
+        $this->info("Примеры слотов: " . implode(', ', array_slice($slots, 0, 5)));
 
-    /**
-     * Создать новую бронь
-     *
-     * @param array $data - Данные для создания брони
-     * @return array - Данные созданной брони
-     * @throws \Exception - Если создание не удалось
-     */
-    private function createBooking(array $data): array
-    {
-        $response = Http::post("{$this->baseUrl}/booking/create", $data);
-
-        if ($response->successful()) {
-            return $response->json()['data'];
-        }
-
-        throw new \Exception($response->json()['error'] ?? 'Ошибка создания брони');
-    }
-
-    /**
-     * Подтвердить бронь
-     *
-     * @param int $bookingId - ID брони
-     * @return array - Данные подтвержденной брони
-     * @throws \Exception - Если подтверждение не удалось
-     */
-    private function confirmBooking(int $bookingId): array
-    {
-        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/confirm");
-
-        if ($response->successful()) {
-            return $response->json()['data'];
-        }
-
-        throw new \Exception($response->json()['error'] ?? 'Ошибка подтверждения брони');
-    }
-
-    /**
-     * Отменить бронь
-     *
-     * @param int $bookingId - ID брони
-     * @param string $cancelledBy - Кто отменяет ('client' или 'admin')
-     * @param string|null $reason - Причина отмены
-     * @return array - Данные отмененной брони
-     * @throws \Exception - Если отмена не удалась
-     */
-    private function cancelBooking(int $bookingId, string $cancelledBy, ?string $reason = null): array
-    {
-        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/cancel", [
-            'cancelled_by' => $cancelledBy,
-            'reason' => $reason
-        ]);
-
-        if ($response->successful()) {
-            return $response->json()['data'];
-        }
-
-        throw new \Exception($response->json()['error'] ?? 'Ошибка отмены брони');
-    }
-
-    /**
-     * Перенести бронь
-     *
-     * @param int $bookingId - ID брони
-     * @param string $newStart - Новое время начала
-     * @param string $newEnd - Новое время окончания
-     * @param string $requestedBy - Кто запрашивает ('client' или 'admin')
-     * @return array - Данные перенесенной брони
-     * @throws \Exception - Если перенос не удался
-     */
-    private function rescheduleBooking(int $bookingId, string $newStart, string $newEnd, string $requestedBy): array
-    {
-        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/reschedule", [
-            'new_start' => $newStart,
-            'new_end' => $newEnd,
-            'requested_by' => $requestedBy
-        ]);
-
-        if ($response->successful()) {
-            return $response->json()['data'];
-        }
-
-        throw new \Exception($response->json()['error'] ?? 'Ошибка переноса брони');
-    }
-
-    /**
-     * Проверить доступность диапазона времени
-     *
-     * @param int $resourceId - ID ресурса
-     * @param string $start - Начало диапазона
-     * @param string $end - Конец диапазона
-     * @return bool - Доступен ли диапазон
-     */
-    private function isRangeAvailable(int $resourceId, string $start, string $end): bool
-    {
-        $response = Http::get("{$this->baseUrl}/booking/check", [
+        // Шаг 2: Создать бронь между перерывами
+        $this->info("\n✅ Шаг 2: Создание брони между перерывами...");
+        $betweenBreaksBooking = $this->createBooking([
             'resource_id' => $resourceId,
-            'start' => $start,
-            'end' => $end
+            'start' => '2024-01-22 13:30:00', // Между обедом и кофе-брейком
+            'end' => '2024-01-22 15:00:00',
+            'booker' => ['name' => 'Бизнес-встреча']
         ]);
+        $this->checkStatus($betweenBreaksBooking, 'pending', "Бронь между перерывами создана");
 
-        if ($response->successful()) {
-            return $response->json()['available'] ?? false;
+        // Шаг 3: Подтверждение брони
+        $this->info("\n✅ Шаг 3: Подтверждение брони администратором...");
+        $confirmedBooking = $this->confirmBooking($betweenBreaksBooking['id']);
+        $this->checkStatus($confirmedBooking, 'confirmed', "Бронь подтверждена");
+
+        // Шаг 4: Попытка брони через несколько перерывов
+        $this->info("\n🔍 Шаг 4: Попытка брони через несколько перерывов...");
+        try {
+            $crossBreaksBooking = $this->createBooking([
+                'resource_id' => $resourceId,
+                'start' => '2024-01-22 11:30:00', // До обеда
+                'end' => '2024-01-22 17:00:00',   // После кофе-брейка
+                'booker' => ['name' => 'Длительная встреча']
+            ]);
+            $this->info("✅ Длительная бронь создана: {$crossBreaksBooking['start']} - {$crossBreaksBooking['end']}");
+        } catch (\Exception $e) {
+            $this->info("❌ Ошибка: {$e->getMessage()}");
         }
 
-        return false;
+        // Шаг 5: Проверка доступности в праздничный день
+        $this->info("\n🎄 Шаг 5: Проверка доступности в праздничный день...");
+        $holidaySlots = $this->getSlots($resourceId, '2024-01-01', 5); // Новый год
+        if (count($holidaySlots) === 0) {
+            $this->info("✅ В праздничный день слотов нет (ожидаемо)");
+        } else {
+            $this->error("❌ В праздничный день есть слоты (НЕОЖИДАННО)");
+        }
     }
 
-    /**
-     * Проверить статус брони
-     *
-     * @param array $booking - Данные брони
-     * @param string $expectedStatus - Ожидаемый статус
-     * @param string $message - Сообщение для вывода
-     * @return void
-     */
-    private function checkStatus(array $booking, string $expectedStatus, string $message): void
+    // 🔧 ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+
+    private function testBoundaryCases(int $resourceId): void
     {
-        if ($booking['status'] === $expectedStatus) {
-            $this->info("✅ {$message}: статус = {$booking['status']}");
-        } else {
-            $this->error("❌ {$message}: ожидался {$expectedStatus}, получен {$booking['status']}");
+        $testCases = [
+            ['start' => '2024-01-15 13:00:00', 'end' => '2024-01-15 14:00:00', 'expected' => false, 'reason' => 'Полностью внутри перерыва'],
+            ['start' => '2024-01-15 12:30:00', 'end' => '2024-01-15 13:30:00', 'expected' => false, 'reason' => 'Начинается до, заканчивается во время перерыва'],
+            ['start' => '2024-01-15 13:45:00', 'end' => '2024-01-15 14:45:00', 'expected' => false, 'reason' => 'Начинается во время, заканчивается после перерыва'],
+            ['start' => '2024-01-15 14:15:00', 'end' => '2024-01-15 15:15:00', 'expected' => true, 'reason' => 'Корректный слот после перерыва'],
+            ['start' => '2024-01-15 11:00:00', 'end' => '2024-01-15 12:00:00', 'expected' => true, 'reason' => 'Корректный слот до перерыва'],
+        ];
+
+        foreach ($testCases as $case) {
+            try {
+                $available = $this->isRangeAvailable($resourceId, $case['start'], $case['end']);
+                $status = $available === $case['expected'] ? '✅' : '❌';
+                $this->info("{$status} {$case['reason']}: " . ($available ? 'доступен' : 'недоступен'));
+            } catch (\Exception $e) {
+                $this->info("❌ {$case['reason']}: ошибка - {$e->getMessage()}");
+            }
         }
+    }
+
+    private function testDateRangeAvailability(int $resourceId): void
+    {
+        $testRanges = [
+            ['start' => '2024-01-21 14:00:00', 'end' => '2024-01-22 12:00:00', 'expected' => false, 'reason' => 'Пересекается с существующей бронью'],
+            ['start' => '2024-01-19 14:00:00', 'end' => '2024-01-20 12:00:00', 'expected' => true, 'reason' => 'До существующей брони'],
+            ['start' => '2024-01-25 14:00:00', 'end' => '2024-01-26 12:00:00', 'expected' => true, 'reason' => 'После существующей брони'],
+        ];
+
+        foreach ($testRanges as $range) {
+            $available = $this->isRangeAvailable($resourceId, $range['start'], $range['end']);
+            $status = $available === $range['expected'] ? '✅' : '❌';
+            $this->info("{$status} {$range['reason']}: " . ($available ? 'доступен' : 'недоступен'));
+        }
+    }
+
+    private function addParticipantsToBooking(int $bookingId, array $participants): void
+    {
+        foreach ($participants as $participant) {
+            // В реальной системе здесь был бы вызов API для добавления участников
+            $this->info("   👤 Добавлен участник: {$participant['name']}");
+        }
+        $this->info("✅ Участники добавлены в бронь {$bookingId}");
+    }
+
+    private function getBooking(int $bookingId): array
+    {
+        $response = Http::get("{$this->baseUrl}/booking/{$bookingId}");
+
+        if ($response->successful()) {
+            return $response->json()['data'];
+        }
+
+        throw new \Exception($response->json()['error'] ?? 'Ошибка получения брони');
     }
 
     // 📋 МЕТОДЫ ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ СЦЕНАРИЕВ
 
-    /**
-     * Получить расписание для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return array - Данные расписания
-     */
     private function getTimetableForScenario(int $scenarioId): array
     {
         $timetables = [
@@ -673,35 +740,88 @@ class DemoBookingScenarios extends Command
                     'days' => [
                         'monday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [
-                                ['start' => '13:15', 'end' => '14:15'] // Обеденный перерыв
-                            ]
+                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
                         ],
                         'tuesday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [
-                                ['start' => '13:15', 'end' => '14:15']
-                            ]
+                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
                         ],
                         'wednesday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [
-                                ['start' => '13:15', 'end' => '14:15']
-                            ]
+                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
                         ],
                         'thursday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [
-                                ['start' => '13:15', 'end' => '14:15']
-                            ]
+                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
                         ],
                         'friday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [
-                                ['start' => '13:15', 'end' => '14:15']
-                            ]
+                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
                         ]
-                        // Суббота и воскресенье - не включаем (выходные)
+                    ]
+                ]
+            ],
+            2 => [ // Переговорная комната
+                'type' => 'static',
+                'schedule' => [
+                    'days' => [
+                        'monday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'tuesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'wednesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'thursday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'friday' => ['working_hours' => ['start' => '08:00', 'end' => '18:00']],
+                    ]
+                ]
+            ],
+            3 => [ // Групповая тренировка
+                'type' => 'static',
+                'schedule' => [
+                    'days' => [
+                        'monday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
+                        'tuesday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
+                        'wednesday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
+                        'thursday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
+                        'friday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
+                        'saturday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                        'sunday' => ['working_hours' => ['start' => '09:00', 'end' => '16:00']],
+                    ]
+                ]
+            ],
+            4 => [ // Дорогое оборудование
+                'type' => 'static',
+                'schedule' => [
+                    'days' => [
+                        'monday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                        'tuesday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                        'wednesday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                        'thursday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                        'friday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
+                    ]
+                ]
+            ],
+            5 => [ // Гостиничный номер
+                'type' => 'static',
+                'schedule' => [
+                    'days' => [
+                        'monday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'tuesday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'wednesday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'thursday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'friday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'saturday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                        'sunday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
+                    ]
+                ]
+            ],
+            6 => [ // Экстренный случай
+                'type' => 'static',
+                'schedule' => [
+                    'days' => [
+                        'monday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'tuesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'wednesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'thursday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
+                        'friday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
                     ]
                 ]
             ],
@@ -711,38 +831,30 @@ class DemoBookingScenarios extends Command
                     'days' => [
                         'monday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ],
                         'tuesday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ],
                         'wednesday' => [
                             'working_hours' => ['start' => '10:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '14:00', 'end' => '15:00']] // Послеобеденный перерыв
+                            'breaks' => [['start' => '14:00', 'end' => '15:00']]
                         ],
                         'thursday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ],
                         'friday' => [
                             'working_hours' => ['start' => '09:00', 'end' => '21:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ],
                         'saturday' => [
                             'working_hours' => ['start' => '10:00', 'end' => '16:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ]
-                        // Воскресенье - не включаем (выходной)
                     ],
-                    'holidays' => [
-                        '01-01', // Новый год
-                        '01-02', // Продолжение новогодних праздников
-                        '01-07', // Рождество
-                        '03-08', // Международный женский день
-                        '05-01', // Праздник весны и труда
-                        '05-09'  // День победы
-                    ]
+                    'holidays' => ['01-01', '01-02', '01-07', '03-08', '05-01', '05-09']
                 ]
             ],
             8 => [ // Бизнес-центр со сложным расписанием
@@ -752,55 +864,44 @@ class DemoBookingScenarios extends Command
                         'monday' => [
                             'working_hours' => ['start' => '08:00', 'end' => '22:00'],
                             'breaks' => [
-                                ['start' => '12:00', 'end' => '13:00'], // Обеденный перерыв
-                                ['start' => '16:00', 'end' => '16:30']  // Кофе-брейк
+                                ['start' => '12:00', 'end' => '13:00'],
+                                ['start' => '16:00', 'end' => '16:30']
                             ]
                         ],
                         'tuesday' => [
                             'working_hours' => ['start' => '08:00', 'end' => '22:00'],
                             'breaks' => [
-                                ['start' => '12:00', 'end' => '13:00'], // Обеденный перерыв
-                                ['start' => '16:00', 'end' => '16:30']  // Кофе-брейк
+                                ['start' => '12:00', 'end' => '13:00'],
+                                ['start' => '16:00', 'end' => '16:30']
                             ]
                         ],
                         'wednesday' => [
                             'working_hours' => ['start' => '08:00', 'end' => '22:00'],
                             'breaks' => [
-                                ['start' => '12:00', 'end' => '13:00'], // Обеденный перерыв
-                                ['start' => '16:00', 'end' => '16:30']  // Кофе-брейк
+                                ['start' => '12:00', 'end' => '13:00'],
+                                ['start' => '16:00', 'end' => '16:30']
                             ]
                         ],
                         'thursday' => [
                             'working_hours' => ['start' => '08:00', 'end' => '22:00'],
                             'breaks' => [
-                                ['start' => '12:00', 'end' => '13:00'], // Обеденный перерыв
-                                ['start' => '16:00', 'end' => '16:30']  // Кофе-брейк
+                                ['start' => '12:00', 'end' => '13:00'],
+                                ['start' => '16:00', 'end' => '16:30']
                             ]
                         ],
                         'friday' => [
                             'working_hours' => ['start' => '08:00', 'end' => '20:00'],
                             'breaks' => [
-                                ['start' => '12:00', 'end' => '13:00'], // Обеденный перерыв
-                                ['start' => '15:00', 'end' => '15:30']  // Ранний кофе-брейк
+                                ['start' => '12:00', 'end' => '13:00'],
+                                ['start' => '15:00', 'end' => '15:30']
                             ]
                         ],
                         'saturday' => [
                             'working_hours' => ['start' => '10:00', 'end' => '16:00'],
-                            'breaks' => [['start' => '13:00', 'end' => '14:00']] // Обеденный перерыв
+                            'breaks' => [['start' => '13:00', 'end' => '14:00']]
                         ]
-                        // Воскресенье - не включаем
                     ],
-                    'holidays' => [
-                        '01-01', // Новый год
-                        '01-02', // Продолжение новогодних праздников
-                        '01-07', // Рождество
-                        '02-23', // День защитника отечества
-                        '03-08', // Международный женский день
-                        '05-01', // Праздник весны и труда
-                        '05-09', // День победы
-                        '06-12', // День России
-                        '11-04'  // День народного единства
-                    ]
+                    'holidays' => ['01-01', '01-02', '01-07', '02-23', '03-08', '05-01', '05-09', '06-12', '11-04']
                 ]
             ]
         ];
@@ -808,66 +909,92 @@ class DemoBookingScenarios extends Command
         return $timetables[$scenarioId] ?? $timetables[1];
     }
 
-    /**
-     * Получить конфигурацию ресурса для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return array - Конфигурация ресурса
-     */
     private function getResourceConfigForScenario(int $scenarioId): array
     {
         $configs = [
             1 => [ // Парикмахерская (усложненный)
-                'require_confirmation' => false,           // Автоматическое подтверждение брони
-                'slot_duration_minutes' => 60,             // Длительность слота: 60 минут
-                'slot_strategy' => 'fixed',                // Стратегия: фиксированные слоты
-                'min_advance_time' => 60,                  // Минимальное время для брони: 60 минут
-                'cancellation_time' => 120,                // Время для отмены: 120 минут
-                'reschedule_time' => 240,                  // Время для переноса: 240 минут
-                'reminder_time' => 1440                    // Время напоминания: 1440 минут (сутки)
+                'require_confirmation' => false,
+                'slot_duration_minutes' => 60,
+                'slot_strategy' => 'fixed',
+                'min_advance_time' => 60,
+                'cancellation_time' => 120,
+                'reschedule_time' => 240,
+                'reminder_time' => 1440
             ],
             2 => [ // Переговорная
-                'require_confirmation' => true,            // Ручное подтверждение брони
-                'slot_duration_minutes' => 30,             // Длительность слота: 30 минут
-                'slot_strategy' => 'dinamic',              // Стратегия: динамические слоты
-                'min_advance_time' => 1440,                // Минимальное время для брони: 1440 минут (сутки)
-                'cancellation_time' => 720,                // Время для отмены: 720 минут (12 часов)
-                'reschedule_time' => 1440                  // Время для переноса: 1440 минут (сутки)
+                'require_confirmation' => true,
+                'slot_duration_minutes' => 30,
+                'slot_strategy' => 'dinamic',
+                'min_advance_time' => 1440,
+                'cancellation_time' => 720,
+                'reschedule_time' => 1440
+            ],
+            3 => [ // Групповая тренировка
+                'require_confirmation' => false,
+                'slot_duration_minutes' => 90,
+                'slot_strategy' => 'fixed',
+                'max_participants' => 10,
+                'min_advance_time' => 60,
+                'cancellation_time' => 180,
+                'reschedule_time' => 360
+            ],
+            4 => [ // Дорогое оборудование
+                'require_confirmation' => true,
+                'slot_duration_minutes' => 120,
+                'slot_strategy' => 'dinamic',
+                'min_advance_time' => 2880, // 48 часов
+                'cancellation_time' => 4320, // 72 часа
+                'reschedule_time' => 5760, // 96 часов
+                'reminder_time' => 1440
+            ],
+            5 => [ // Гостиничный номер
+                'require_confirmation' => false,
+                'slot_duration_minutes' => 1440, // 24 часа
+                'slot_strategy' => 'fixed',
+                'min_advance_time' => 0,
+                'cancellation_time' => 10080, // 7 дней
+                'reschedule_time' => 10080
+            ],
+            6 => [ // Экстренный случай
+                'require_confirmation' => true,
+                'slot_duration_minutes' => 60,
+                'slot_strategy' => 'dinamic',
+                'min_advance_time' => 0,
+                'cancellation_time' => 0,
+                'reschedule_time' => 0
             ],
             7 => [ // Салон красоты
-                'require_confirmation' => false,           // Автоматическое подтверждение брони
-                'slot_duration_minutes' => 60,             // Длительность слота: 60 минут
-                'slot_strategy' => 'fixed',                // Стратегия: фиксированные слоты
-                'min_advance_time' => 120,                 // Минимальное время для брони: 120 минут
-                'cancellation_time' => 180,                // Время для отмены: 180 минут
-                'reschedule_time' => 360,                  // Время для переноса: 360 минут
-                'reminder_time' => 1440                    // Время напоминания: 1440 минут (сутки)
+                'require_confirmation' => false,
+                'slot_duration_minutes' => 60,
+                'slot_strategy' => 'fixed',
+                'min_advance_time' => 120,
+                'cancellation_time' => 180,
+                'reschedule_time' => 360,
+                'reminder_time' => 1440
             ],
             8 => [ // Бизнес-центр
-                'require_confirmation' => true,            // Ручное подтверждение брони
-                'slot_duration_minutes' => 60,             // Длительность слота: 60 минут
-                'slot_strategy' => 'dinamic',              // Стратегия: динамические слоты
-                'max_participants' => 20,                  // Максимальное количество участников: 20
-                'min_advance_time' => 1440,                // Минимальное время для брони: 1440 минут (сутки)
-                'cancellation_time' => 720,                // Время для отмены: 720 минут (12 часов)
-                'reschedule_time' => 1440                  // Время для переноса: 1440 минут (сутки)
+                'require_confirmation' => true,
+                'slot_duration_minutes' => 60,
+                'slot_strategy' => 'dinamic',
+                'max_participants' => 20,
+                'min_advance_time' => 1440,
+                'cancellation_time' => 720,
+                'reschedule_time' => 1440
             ]
         ];
 
         return $configs[$scenarioId] ?? $configs[1];
     }
 
-    /**
-     * Получить описание сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return string - Описание сценария
-     */
     private function getScenarioDescription(int $scenarioId): string
     {
         $descriptions = [
             1 => "Парикмахерская услуга с фиксированными слотами и автоматическим подтверждением (усложненный с перерывами)",
             2 => "Переговорная комната с динамическими слотами и ручным подтверждением",
+            3 => "Групповая тренировка с фиксированными слотами и ограничением участников",
+            4 => "Дорогое оборудование с динамическими слотами и строгими ограничениями",
+            5 => "Гостиничный номер с переходящими бронями на несколько дней",
+            6 => "Экстренные случаи с приоритетом администратора",
             7 => "Салон красоты со статическим расписанием и учетом праздничных дней",
             8 => "Бизнес-центр со сложным расписанием и множественными перерывами"
         ];
@@ -875,17 +1002,15 @@ class DemoBookingScenarios extends Command
         return $descriptions[$scenarioId] ?? "Демонстрационный сценарий {$scenarioId}";
     }
 
-    /**
-     * Получить название ресурса для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return string - Название ресурса
-     */
     private function getResourceName(int $scenarioId): string
     {
         $names = [
             1 => "💈 Парикмахер (усложненный)",
             2 => "🏢 Переговорная комната",
+            3 => "🏋️ Групповая тренировка",
+            4 => "💎 Дорогое оборудование",
+            5 => "🏨 Гостиничный номер",
+            6 => "⚡ Экстренный ресурс",
             7 => "💅 Салон красоты",
             8 => "🏢 Бизнес-центр"
         ];
@@ -893,34 +1018,27 @@ class DemoBookingScenarios extends Command
         return $names[$scenarioId] ?? "Ресурс {$scenarioId}";
     }
 
-    /**
-     * Получить опции ресурса для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return array - Опции ресурса
-     */
     private function getResourceOptionsForScenario(int $scenarioId): array
     {
-        return ['scenario_id' => $scenarioId, 'demo' => true];
+        $options = [
+            1 => ['specialization' => 'Парикмахер', 'experience' => '5 лет'],
+            2 => ['location' => 'Этаж 3', 'capacity' => 8, 'equipment' => ['projector', 'whiteboard']],
+            3 => ['location' => 'Зал А', 'trainer' => 'Иван Петров', 'type' => 'Йога'],
+            4 => ['name' => '3D принтер', 'model' => 'Ultimaker S5', 'value' => '250000 руб'],
+            5 => ['room_number' => '404', 'type' => 'Стандарт', 'beds' => 2],
+            6 => ['priority' => 'high', 'emergency_contact' => '+7-XXX-XXX-XX-XX'],
+            7 => ['specialization' => 'Косметолог', 'services' => ['маникюр', 'педикюр']],
+            8 => ['location' => 'Бизнес-центр "Сити"', 'floor' => '15', 'capacity' => 50]
+        ];
+
+        return $options[$scenarioId] ?? ['scenario_id' => $scenarioId, 'demo' => true];
     }
 
-    /**
-     * Получить переопределения конфигурации ресурса для сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return array - Переопределения конфигурации
-     */
     private function getResourceOverridesForScenario(int $scenarioId): array
     {
         return [];
     }
 
-    /**
-     * Получить краткое описание конфигурации
-     *
-     * @param array $config - Конфигурация ресурса
-     * @return string - Краткое описание
-     */
     private function getConfigSummary(array $config): string
     {
         $parts = [];
@@ -941,27 +1059,105 @@ class DemoBookingScenarios extends Command
         return implode(', ', $parts);
     }
 
-    /**
-     * Очистить данные сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @return void
-     */
+    // 🔧 API ВЫЗОВЫ
+
+    private function getSlots(int $resourceId, string $date, int $count): array
+    {
+        $response = Http::get("{$this->baseUrl}/booking/{$resourceId}/slots", [
+            'date' => $date,
+            'count' => $count
+        ]);
+
+        if ($response->successful()) {
+            return array_map(function($slot) {
+                return $slot['start'] . '-' . $slot['end'];
+            }, $response->json()['data'] ?? []);
+        }
+
+        return [];
+    }
+
+    private function createBooking(array $data): array
+    {
+        $response = Http::post("{$this->baseUrl}/booking/create", $data);
+
+        if ($response->successful()) {
+            return $response->json()['data'];
+        }
+
+        throw new \Exception($response->json()['error'] ?? 'Ошибка создания брони');
+    }
+
+    private function confirmBooking(int $bookingId): array
+    {
+        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/confirm");
+
+        if ($response->successful()) {
+            return $response->json()['data'];
+        }
+
+        throw new \Exception($response->json()['error'] ?? 'Ошибка подтверждения брони');
+    }
+
+    private function cancelBooking(int $bookingId, string $cancelledBy, ?string $reason = null): array
+    {
+        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/cancel", [
+            'cancelled_by' => $cancelledBy,
+            'reason' => $reason
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['data'];
+        }
+
+        throw new \Exception($response->json()['error'] ?? 'Ошибка отмены брони');
+    }
+
+    private function rescheduleBooking(int $bookingId, string $newStart, string $newEnd, string $requestedBy): array
+    {
+        $response = Http::post("{$this->baseUrl}/booking/{$bookingId}/reschedule", [
+            'new_start' => $newStart,
+            'new_end' => $newEnd,
+            'requested_by' => $requestedBy
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['data'];
+        }
+
+        throw new \Exception($response->json()['error'] ?? 'Ошибка переноса брони');
+    }
+
+    private function isRangeAvailable(int $resourceId, string $start, string $end): bool
+    {
+        $response = Http::get("{$this->baseUrl}/booking/check", [
+            'resource_id' => $resourceId,
+            'start' => $start,
+            'end' => $end
+        ]);
+
+        if ($response->successful()) {
+            return $response->json()['available'] ?? false;
+        }
+
+        return false;
+    }
+
+    private function checkStatus(array $booking, string $expectedStatus, string $message): void
+    {
+        if ($booking['status'] === $expectedStatus) {
+            $this->info("✅ {$message}: статус = {$booking['status']}");
+        } else {
+            $this->error("❌ {$message}: ожидался {$expectedStatus}, получен {$booking['status']}");
+        }
+    }
+
     private function cleanupScenarioData(int $scenarioId): void
     {
         $companyId = $scenarioId * 100;
         Company::where('id', $companyId)->delete();
-
-        BookingLoggerService::info("Данные сценария очищены", ['scenario_id' => $scenarioId]);
     }
 
-    /**
-     * Сохранить результаты выполнения сценария
-     *
-     * @param int $scenarioId - ID сценария
-     * @param array $setupData - Данные настройки
-     * @return void
-     */
     private function storeScenarioResults(int $scenarioId, array $setupData): void
     {
         $filename = storage_path("app/demo/scenario_{$scenarioId}_results.json");
@@ -981,10 +1177,5 @@ class DemoBookingScenarios extends Command
 
         file_put_contents($filename, json_encode($results, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $this->info("📄 Результаты сохранены в: {$filename}");
-
-        BookingLoggerService::info("Результаты сценария сохранены", [
-            'scenario_id' => $scenarioId,
-            'file' => $filename
-        ]);
     }
 }
