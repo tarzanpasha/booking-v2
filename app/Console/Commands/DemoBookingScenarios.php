@@ -541,6 +541,7 @@ class DemoBookingScenarios extends Command
             return $response->json()['data'];
         }
 
+
         throw new \Exception($response->json()['error'] ?? 'Ошибка отмены брони');
     }
 
