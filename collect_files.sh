@@ -2,7 +2,7 @@
 
 # Переменные
 OUTPUT_FILE="project.txt"
-TARGET_DIRS=("app" "routes")
+TARGET_DIRS=("app" "routes" "database" )
 
 # Проверяем существование целевых папок
 for dir in "${TARGET_DIRS[@]}"; do
