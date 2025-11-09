@@ -85,11 +85,20 @@ class BookingService
 
             if (!$isAdmin) {
                 $this->validateBookingTime($resource, $startTime, $endTime, $config);
-            }
 
-            // Используем новый метод для комплексной проверки
-            if (!$this->isTimeRangeAvailable($resource, $startTime, $endTime)) {
-                throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
+                // Для обычных пользователей проверяем доступность
+                if (!$this->isTimeRangeAvailable($resource, $startTime, $endTime)) {
+                    throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
+                }
+            } else {
+                // Для администраторов проверяем только базовую валидность времени
+                if ($startTime >= $endTime) {
+                    throw new \Exception('Время окончания должно быть после времени начала');
+                }
+
+                // Администраторы могут создавать брони даже в занятое время
+                // (перезаписывая существующие брони)
+                $this->handleAdminBookingOverlap($resource, $startTime, $endTime);
             }
 
             $status = $config->requiresConfirmation() && !$isAdmin
@@ -121,6 +130,41 @@ class BookingService
 
             return $booking;
         });
+    }
+
+    /**
+     * Обрабатывает пересечения для администраторских броней
+     * Автоматически отменяет пересекающиеся брони пользователей
+     */
+    private function handleAdminBookingOverlap(Resource $resource, Carbon $start, Carbon $end): void
+    {
+        $overlappingBookings = Booking::where('resource_id', $resource->id)
+            ->where(function ($query) use ($start, $end) {
+                $query->where(function ($q) use ($start, $end) {
+                    $q->where('start', '<', $end)
+                        ->where('end', '>', $start);
+                });
+            })
+            ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
+            ->whereDoesntHave('bookers', function ($q) {
+                $q->where('type', 'admin');
+            })
+            ->get();
+
+        foreach ($overlappingBookings as $overlappingBooking) {
+            $overlappingBooking->update([
+                'status' => BookingStatus::CANCELLED_BY_ADMIN->value,
+                'reason' => 'Автоматически отменена из-за администраторской брони'
+            ]);
+
+            BookingLoggerService::warning("❌ Бронь автоматически отменена из-за администраторской", [
+                'booking_id' => $overlappingBooking->id,
+                'admin_booking_start' => $start,
+                'admin_booking_end' => $end
+            ]);
+
+            event(new \App\Events\BookingCancelled($overlappingBooking));
+        }
     }
 
     public function confirmBooking(int $bookingId): Booking
