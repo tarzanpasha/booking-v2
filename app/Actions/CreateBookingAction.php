@@ -1,4 +1,5 @@
 <?php
+// app/Actions/CreateBookingAction.php
 
 namespace App\Actions;
 
@@ -20,7 +21,7 @@ class CreateBookingAction
         string $start,
         string $end,
         array $bookerData = [],
-        bool $isAdmin = false
+        bool $isAdmin = false // Убедитесь что этот параметр есть
     ): Booking {
         return DB::transaction(function () use ($resource, $start, $end, $bookerData, $isAdmin) {
             $config = $resource->getResourceConfig();

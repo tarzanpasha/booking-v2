@@ -1,4 +1,5 @@
 <?php
+// app/Services/Booking/BookingService.php
 
 namespace App\Services\Booking;
 

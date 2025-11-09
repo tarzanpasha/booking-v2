@@ -1,4 +1,5 @@
 <?php
+// app/Http/Requests/CreateBookingRequest.php
 
 namespace App\Http\Requests;
 
@@ -24,7 +25,7 @@ class CreateBookingRequest extends FormRequest
             'booker.email' => 'sometimes|email',
             'booker.phone' => 'sometimes|string',
             'booker.metadata' => 'sometimes|array',
-            'is_admin' => 'sometimes|boolean'
+            'is_admin' => 'sometimes|boolean' // Убедитесь что это правило есть
         ];
     }
 }
