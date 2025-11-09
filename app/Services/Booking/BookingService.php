@@ -239,6 +239,6 @@ class BookingService
             ]
         );
 
-        $booking->bookers()->attach($booker->id);
+        $booking->bookers()->syncWithoutDetaching([$booker->id]);
     }
 }

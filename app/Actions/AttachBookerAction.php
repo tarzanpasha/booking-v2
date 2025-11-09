@@ -22,6 +22,7 @@ class AttachBookerAction
             ]
         );
 
-        $booking->bookers()->attach($booker->id);
+        // Прикрепляем booker к бронированию через связь многие-ко-многим
+        $booking->bookers()->syncWithoutDetaching([$booker->id]);
     }
 }
