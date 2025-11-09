@@ -85,6 +85,11 @@ class ResourceConfig
     {
         if ($this->cancellation_time === null) return true;
 
+        // Для строгих ограничений: если cancellation_time = 0, отмена невозможна
+        if ($this->cancellation_time === 0) {
+            return false;
+        }
+
         $now = new \DateTime();
         $diff = $now->diff($bookingStart);
         $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
@@ -95,6 +100,11 @@ class ResourceConfig
     public function canReschedule(\DateTime $bookingStart): bool
     {
         if ($this->reschedule_time === null) return true;
+
+        // Для строгих ограничений: если reschedule_time = 0, перенос невозможен
+        if ($this->reschedule_time === 0) {
+            return false;
+        }
 
         $now = new \DateTime();
         $diff = $now->diff($bookingStart);

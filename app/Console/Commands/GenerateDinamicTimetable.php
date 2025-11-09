@@ -8,6 +8,7 @@ use App\Models\Timetable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use App\Data\DynamicScheduleTemplates;
 
 class GenerateDinamicTimetable extends Command
 {
@@ -63,15 +64,7 @@ class GenerateDinamicTimetable extends Command
      */
     private function generateDailySchedule(): array
     {
-        $scheduleTypes = [
-            '8h_normal' => ['start' => '09:00', 'end' => '17:00'],
-            '8h_early' => ['start' => '08:00', 'end' => '16:00'],
-            '8h_late' => ['start' => '10:00', 'end' => '18:00'],
-            '10h' => ['start' => '08:00', 'end' => '18:00'],
-            '12h' => ['start' => '08:00', 'end' => '20:00'],
-            '24h' => ['start' => '08:00', 'end' => '08:00'], // Следующего дня
-            '6h_short' => ['start' => '10:00', 'end' => '16:00'],
-        ];
+        $scheduleTypes = DynamicScheduleTemplates::getScheduleTypes();
 
         // Выбираем случайный тип графика
         $scheduleType = array_rand($scheduleTypes);
@@ -92,42 +85,16 @@ class GenerateDinamicTimetable extends Command
      */
     private function generateBreaksForSchedule(string $scheduleType, array $workingHours): array
     {
+        $breakConfigs = DynamicScheduleTemplates::getBreakConfigurations();
+        $config = $breakConfigs[$scheduleType] ?? ['break_count' => [1, 2], 'min_duration' => 30, 'max_duration' => 60];
+
         $breaks = [];
+        $breakCount = rand($config['break_count'][0], $config['break_count'][1]);
 
-        switch ($scheduleType) {
-            case '8h_normal':
-            case '8h_early':
-            case '8h_late':
-                // 1-2 перерыва для 8-часового дня
-                $breakCount = rand(1, 2);
-                $breaks = $this->generateBreaks($workingHours, $breakCount, 30, 60);
-                break;
-
-            case '10h':
-                // 2-3 перерыва для 10-часового дня
-                $breakCount = rand(2, 3);
-                $breaks = $this->generateBreaks($workingHours, $breakCount, 15, 45);
-                break;
-
-            case '12h':
-                // 3-4 перерыва для 12-часового дня
-                $breakCount = rand(3, 4);
-                $breaks = $this->generateBreaks($workingHours, $breakCount, 15, 60);
-                break;
-
-            case '24h':
-                // 4-6 перерывов для 24-часовой смены
-                $breakCount = rand(4, 6);
-                $breaks = $this->generate24hBreaks($breakCount);
-                break;
-
-            case '6h_short':
-                // 0-1 перерыв для короткого дня
-                $breakCount = rand(0, 1);
-                if ($breakCount > 0) {
-                    $breaks = $this->generateBreaks($workingHours, 1, 15, 30);
-                }
-                break;
+        if ($scheduleType === '24h') {
+            $breaks = $this->generate24hBreaks($breakCount);
+        } elseif ($breakCount > 0) {
+            $breaks = $this->generateBreaks($workingHours, $breakCount, $config['min_duration'], $config['max_duration']);
         }
 
         return $breaks;

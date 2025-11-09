@@ -279,8 +279,14 @@ class BookingService
     {
         $now = now();
 
-        if ($start->diffInMinutes($now) < $config->min_advance_time) {
-            throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут');
+        // Проверка минимального времени для бронирования
+        if ($config->min_advance_time > 0 && $start->diffInMinutes($now) < $config->min_advance_time) {
+            throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала');
+        }
+
+        // Для строгих ограничений (min_advance_time = 0) - бронирование только в будущем
+        if ($config->min_advance_time === 0 && $start <= $now) {
+            throw new \Exception('Бронирование невозможно для прошедшего времени');
         }
 
         if (!$this->isValidSlotTime($resource, $start, $end, $config)) {

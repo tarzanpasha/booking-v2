@@ -1,5 +1,4 @@
 <?php
-// app/Console/Commands/DemoScenarios/ScenarioRunnerService.php
 
 namespace App\Console\Commands\DemoScenarios;
 
@@ -18,6 +17,9 @@ use App\Http\Requests\GetSlotsRequest;
 use App\Http\Requests\CreateBookingRequest;
 use App\Http\Requests\CancelBookingRequest;
 use App\Http\Requests\RescheduleBookingRequest;
+use App\Data\ScenarioTimetableData;
+use App\Data\ScenarioResourceConfigData;
+use App\Data\ScenarioOptionsData;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -186,7 +188,7 @@ class ScenarioRunnerService
         $this->currentCompanyId = $company->id;
 
         // Получение данных расписания для сценария
-        $timetableData = $this->getTimetableForScenario($scenarioId);
+        $timetableData = ScenarioTimetableData::getTimetableForScenario($scenarioId);
         $timetable = $this->createTimetableAction->execute(
             $company->id,
             $timetableData['schedule'],
@@ -194,13 +196,13 @@ class ScenarioRunnerService
         );
 
         // Конфигурация типа ресурса
-        $resourceTypeConfig = $this->getResourceConfigForScenario($scenarioId);
+        $resourceTypeConfig = ScenarioResourceConfigData::getResourceConfigForScenario($scenarioId);
         $resourceTypeData = [
             'company_id' => $company->id,
             'timetable_id' => $timetable->id,
             'type' => "type_scenario_{$scenarioId}",
             'name' => "Тип ресурса Сценарий {$scenarioId}",
-            'description' => $this->getScenarioDescription($scenarioId),
+            'description' => ScenarioOptionsData::getScenarioDescription($scenarioId),
             'resource_config' => $resourceTypeConfig
         ];
 
@@ -211,7 +213,7 @@ class ScenarioRunnerService
             'company_id' => $company->id,
             'timetable_id' => $timetable->id,
             'resource_type_id' => $resourceType->id,
-            'options' => $this->getResourceOptionsForScenario($scenarioId),
+            'options' => ScenarioOptionsData::getResourceOptionsForScenario($scenarioId),
             'resource_config' => $this->getResourceOverridesForScenario($scenarioId)
         ];
 
@@ -223,320 +225,6 @@ class ScenarioRunnerService
             'resource_type_id' => $resourceType->id,
             'resource_id' => $resource->id
         ];
-    }
-
-    /**
-     * Получение данных расписания для конкретного сценария
-     */
-    public function getTimetableForScenario(int $scenarioId): array
-    {
-        $timetables = [
-            1 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'tuesday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'wednesday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'thursday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'friday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ]
-                    ]
-                ]
-            ],
-            2 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'tuesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'wednesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'thursday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'friday' => ['working_hours' => ['start' => '08:00', 'end' => '18:00']],
-                    ]
-                ]
-            ],
-            3 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
-                        'tuesday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
-                        'wednesday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
-                        'thursday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
-                        'friday' => ['working_hours' => ['start' => '07:00', 'end' => '22:00']],
-                        'saturday' => ['working_hours' => ['start' => '09:00', 'end' => '18:00']],
-                        'sunday' => ['working_hours' => ['start' => '09:00', 'end' => '16:00']],
-                    ]
-                ]
-            ],
-            4 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '12:30', 'end' => '13:30']]
-                        ],
-                        'tuesday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '12:30', 'end' => '13:30']]
-                        ],
-                        'wednesday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '12:30', 'end' => '13:30']]
-                        ],
-                        'thursday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '12:30', 'end' => '13:30']]
-                        ],
-                        'friday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '12:30', 'end' => '13:30']]
-                        ],
-                    ]
-                ]
-            ],
-            5 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'tuesday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'wednesday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'thursday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'friday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'saturday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                        'sunday' => ['working_hours' => ['start' => '00:00', 'end' => '23:59']],
-                    ]
-                ]
-            ],
-            6 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'tuesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'wednesday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'thursday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                        'friday' => ['working_hours' => ['start' => '08:00', 'end' => '20:00']],
-                    ]
-                ]
-            ],
-            7 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'tuesday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'wednesday' => [
-                            'working_hours' => ['start' => '10:00', 'end' => '18:00'],
-                            'breaks' => [['start' => '14:00', 'end' => '15:00']]
-                        ],
-                        'thursday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '20:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'friday' => [
-                            'working_hours' => ['start' => '09:00', 'end' => '21:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ],
-                        'saturday' => [
-                            'working_hours' => ['start' => '10:00', 'end' => '16:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ]
-                    ],
-                    'holidays' => ['01-01', '01-02', '01-07', '03-08', '05-01', '05-09']
-                ]
-            ],
-            8 => [
-                'type' => 'static',
-                'schedule' => [
-                    'days' => [
-                        'monday' => [
-                            'working_hours' => ['start' => '08:00', 'end' => '22:00'],
-                            'breaks' => [
-                                ['start' => '12:15', 'end' => '13:15'],
-                                ['start' => '16:00', 'end' => '16:30']
-                            ]
-                        ],
-                        'tuesday' => [
-                            'working_hours' => ['start' => '08:00', 'end' => '22:00'],
-                            'breaks' => [
-                                ['start' => '12:15', 'end' => '13:15'],
-                                ['start' => '16:00', 'end' => '16:30']
-                            ]
-                        ],
-                        'wednesday' => [
-                            'working_hours' => ['start' => '08:00', 'end' => '22:00'],
-                            'breaks' => [
-                                ['start' => '12:15', 'end' => '13:15'],
-                                ['start' => '16:00', 'end' => '16:30']
-                            ]
-                        ],
-                        'thursday' => [
-                            'working_hours' => ['start' => '08:00', 'end' => '22:00'],
-                            'breaks' => [
-                                ['start' => '12:15', 'end' => '13:15'],
-                                ['start' => '16:00', 'end' => '16:30']
-                            ]
-                        ],
-                        'friday' => [
-                            'working_hours' => ['start' => '08:00', 'end' => '20:00'],
-                            'breaks' => [
-                                ['start' => '12:15', 'end' => '13:15'],
-                                ['start' => '15:00', 'end' => '15:30']
-                            ]
-                        ],
-                        'saturday' => [
-                            'working_hours' => ['start' => '10:00', 'end' => '16:00'],
-                            'breaks' => [['start' => '13:15', 'end' => '14:15']]
-                        ]
-                    ],
-                    'holidays' => ['01-01', '01-02', '01-07', '02-23', '03-08', '05-01', '05-09', '06-12', '11-04']
-                ]
-            ]
-        ];
-
-        return $timetables[$scenarioId] ?? $timetables[1];
-    }
-
-    /**
-     * Получение конфигурации ресурса для сценария
-     */
-    public function getResourceConfigForScenario(int $scenarioId): array
-    {
-        $configs = [
-            1 => [
-                'require_confirmation' => false,
-                'slot_duration_minutes' => 60,
-                'slot_strategy' => 'fixed',
-                'min_advance_time' => 60,
-                'cancellation_time' => 120,
-                'reschedule_time' => 240,
-                'reminder_time' => 1440
-            ],
-            2 => [
-                'require_confirmation' => true,
-                'slot_duration_minutes' => 30,
-                'slot_strategy' => 'dinamic',
-                'min_advance_time' => 1440,
-                'cancellation_time' => 720,
-                'reschedule_time' => 1440
-            ],
-            3 => [
-                'require_confirmation' => false,
-                'slot_duration_minutes' => 90,
-                'slot_strategy' => 'fixed',
-                'max_participants' => 10,
-                'min_advance_time' => 60,
-                'cancellation_time' => 180,
-                'reschedule_time' => 360
-            ],
-            4 => [
-                'require_confirmation' => true,
-                'slot_duration_minutes' => 120,
-                'slot_strategy' => 'dinamic',
-                'min_advance_time' => 2880,
-                'cancellation_time' => 4320,
-                'reschedule_time' => 5760,
-                'reminder_time' => 1440
-            ],
-            5 => [
-                'require_confirmation' => false,
-                'slot_duration_minutes' => 1440,
-                'slot_strategy' => 'fixed',
-                'min_advance_time' => 0,
-                'cancellation_time' => 10080,
-                'reschedule_time' => 10080
-            ],
-            6 => [
-                'require_confirmation' => true,
-                'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
-                'min_advance_time' => 0,
-                'cancellation_time' => 0,
-                'reschedule_time' => 0
-            ],
-            7 => [
-                'require_confirmation' => false,
-                'slot_duration_minutes' => 60,
-                'slot_strategy' => 'fixed',
-                'min_advance_time' => 120,
-                'cancellation_time' => 180,
-                'reschedule_time' => 360,
-                'reminder_time' => 1440
-            ],
-            8 => [
-                'require_confirmation' => true,
-                'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
-                'max_participants' => 20,
-                'min_advance_time' => 1440,
-                'cancellation_time' => 720,
-                'reschedule_time' => 1440
-            ]
-        ];
-
-        return $configs[$scenarioId] ?? $configs[1];
-    }
-
-    /**
-     * Получение описания сценария
-     */
-    public function getScenarioDescription(int $scenarioId): string
-    {
-        $descriptions = [
-            1 => "Парикмахерская услуга с фиксированными слотами и автоматическим подтверждением",
-            2 => "Переговорная комната с динамическими слотами и ручным подтверждением",
-            3 => "Групповая тренировка с фиксированными слотами и ограничением участников",
-            4 => "Дорогое оборудование с динамическими слотами и строгими ограничениями",
-            5 => "Гостиничный номер с переходящими бронями на несколько дней",
-            6 => "Экстренные случаи с приоритетом администратора",
-            7 => "Салон красоты со статическим расписанием и учетом праздничных дней",
-            8 => "Бизнес-центр со сложным расписанием и множественными перерывами"
-        ];
-
-        return $descriptions[$scenarioId] ?? "Демонстрационный сценарий {$scenarioId}";
-    }
-
-    /**
-     * Получение опций ресурса для сценария
-     */
-    public function getResourceOptionsForScenario(int $scenarioId): array
-    {
-        $options = [
-            1 => ['specialization' => 'Парикмахер', 'experience' => '5 лет'],
-            2 => ['location' => 'Этаж 3', 'capacity' => 8, 'equipment' => ['projector', 'whiteboard']],
-            3 => ['location' => 'Зал А', 'trainer' => 'Иван Петров', 'type' => 'Йога'],
-            4 => ['name' => '3D принтер', 'model' => 'Ultimaker S5', 'value' => '250000 руб'],
-            5 => ['room_number' => '404', 'type' => 'Стандарт', 'beds' => 2],
-            6 => ['priority' => 'high', 'emergency_contact' => '+7-XXX-XXX-XX-XX'],
-            7 => ['specialization' => 'Косметолог', 'services' => ['маникюр', 'педикюр']],
-            8 => ['location' => 'Бизнес-центр "Сити"', 'floor' => '15', 'capacity' => 50]
-        ];
-
-        return $options[$scenarioId] ?? ['scenario_id' => $scenarioId, 'demo' => true];
     }
 
     /**

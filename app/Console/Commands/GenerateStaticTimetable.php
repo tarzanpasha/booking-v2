@@ -6,6 +6,7 @@ use App\Actions\CreateOrUpdateCompanyAction;
 use App\Models\Timetable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use App\Data\WorkingHoursTemplates;
 
 class GenerateStaticTimetable extends Command
 {
@@ -54,16 +55,7 @@ class GenerateStaticTimetable extends Command
         }
 
         // Российские праздники
-        $schedule['holidays'] = [
-            '01-01', '01-02', '01-03', '01-04', '01-05', '01-06', '01-08', // Новогодние каникулы
-            '01-07', // Рождество
-            '02-23', // День защитника Отечества
-            '03-08', // Международный женский день
-            '05-01', // Праздник Весны и Труда
-            '05-09', // День Победы
-            '06-12', // День России
-            '11-04', // День народного единства
-        ];
+        $schedule['holidays'] = WorkingHoursTemplates::getRussianHolidays();
 
         $timetable = Timetable::create([
             'company_id' => $companyId,
@@ -86,11 +78,7 @@ class GenerateStaticTimetable extends Command
      */
     private function selectWorkingDaysPattern(): array
     {
-        $patterns = [
-            ['monday', 'wednesday', 'friday'],    // Пн, Ср, Пт
-            ['tuesday', 'thursday', 'saturday'],  // Вт, Чт, Сб
-        ];
-
+        $patterns = WorkingHoursTemplates::getWorkingDaysPatterns();
         return $patterns[array_rand($patterns)];
     }
 
@@ -99,21 +87,7 @@ class GenerateStaticTimetable extends Command
      */
     private function selectWorkingHoursTemplate(): array
     {
-        $templates = [
-            [
-                'regular' => ['start' => '08:00', 'end' => '17:00'],
-                'early' => ['start' => '08:00', 'end' => '16:00'] // На час раньше
-            ],
-            [
-                'regular' => ['start' => '09:00', 'end' => '18:00'],
-                'early' => ['start' => '09:00', 'end' => '17:00'] // На час раньше
-            ],
-            [
-                'regular' => ['start' => '10:00', 'end' => '19:00'],
-                'early' => ['start' => '10:00', 'end' => '18:00'] // На час раньше
-            ]
-        ];
-
+        $templates = WorkingHoursTemplates::getWorkingHoursTemplates();
         return $templates[array_rand($templates)];
     }
 
