@@ -10,19 +10,6 @@ use Carbon\CarbonPeriod;
 
 class SlotGenerationService
 {
-
-    private function transformDaySlots(array $daySlots): array
-    {
-        return collect($daySlots)
-            ->map(function ($slot) {
-                return [
-                    'start' => $slot['start']->format('H:i'),
-                    'end' => $slot['end']->format('H:i'),
-                ];
-            })
-            ->toArray();
-    }
-
     public function getNextAvailableSlots(
         Resource $resource,
         Carbon $from = null,
@@ -37,13 +24,18 @@ class SlotGenerationService
         while (count($slots) < $count) {
             $daySlots = $this->generateSlotsForDate($resource, $currentDate);
 
-            $daySlotsTransformed = $this->transformDaySlots($daySlots);
+            // Добавляем проверку на пустые слоты и корректную структуру
+            if (!empty($daySlots)) {
+                foreach ($daySlots as $slot) {
+                    if (count($slots) >= $count) break;
 
-            foreach ($daySlots as $slot) {
-                if (count($slots) >= $count) break;
-
-                if ($this->isSlotAvailable($resource, $slot['start'], 1)) {
-                    $slots[] = $slot;
+                    // Проверяем что слот имеет правильную структуру
+                    if (isset($slot['start']) && isset($slot['end'])) {
+                        // Проверяем что слот доступен
+                        if ($this->isSlotAvailable($resource, $slot['start'], 1)) {
+                            $slots[] = $slot;
+                        }
+                    }
                 }
             }
 
@@ -63,24 +55,40 @@ class SlotGenerationService
             return [];
         }
 
-        return $config->isFixedStrategy()
+        $slots = $config->isFixedStrategy()
             ? $this->generateFixedSlots($resource, $date, $timetable, $config)
             : $this->generateDynamicSlots($resource, $date, $timetable, $config);
+
+        // Гарантируем что все слоты имеют правильную структуру
+        return array_filter($slots, function($slot) {
+            return isset($slot['start']) && isset($slot['end']) && isset($slot['duration_minutes']);
+        });
     }
 
     private function generateFixedSlots(Resource $resource, Carbon $date, $timetable, ResourceConfig $config): array
     {
         $currentDate = $this->getWorkingHoursForDate($timetable, $date);
-        if (!$currentDate) return [];
+        if (!$currentDate || !isset($currentDate['working_hours'])) {
+            return [];
+        }
 
         $workingHours = $currentDate['working_hours'];
 
+        // Проверяем что working_hours имеет нужные поля
+        if (!isset($workingHours['start']) || !isset($workingHours['end'])) {
+            return [];
+        }
 
         $slots = [];
-        $slotDuration = $config->slot_duration_minutes;
+        $slotDuration = $config->slot_duration_minutes ?? 60;
 
-        $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['start']);
-        $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['end']);
+        try {
+            $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['start']);
+            $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['end']);
+        } catch (\Exception $e) {
+            return [];
+        }
+
         $breaks = $currentDate['breaks'] ?? [];
 
         $current = $startTime->copy();
@@ -92,8 +100,9 @@ class SlotGenerationService
 
             if (!$this->isTimeInBreaks($current, $slotEnd, $breaks)) {
                 $slots[] = [
-                    'start' => $current->copy(),
-                    'end' => $slotEnd->copy()
+                    'start' => $current->copy()->toDateTimeString(),
+                    'end' => $slotEnd->copy()->toDateTimeString(),
+                    'duration_minutes' => $slotDuration
                 ];
             }
 
@@ -106,7 +115,16 @@ class SlotGenerationService
     private function generateDynamicSlots(Resource $resource, Carbon $date, $timetable, ResourceConfig $config): array
     {
         $workingHours = $this->getWorkingHoursForDate($timetable, $date);
-        if (!$workingHours) return [];
+        if (!$workingHours || !isset($workingHours['working_hours'])) {
+            return [];
+        }
+
+        $workingHours = $workingHours['working_hours'];
+
+        // Проверяем что working_hours имеет нужные поля
+        if (!isset($workingHours['start']) || !isset($workingHours['end'])) {
+            return [];
+        }
 
         $bookings = Booking::where('resource_id', $resource->id)
             ->whereDate('start', $date)
@@ -115,10 +133,15 @@ class SlotGenerationService
             ->get();
 
         $slots = [];
-        $slotDuration = $config->slot_duration_minutes;
+        $slotDuration = $config->slot_duration_minutes ?? 60;
 
-        $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['start']);
-        $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['end']);
+        try {
+            $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['start']);
+            $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $workingHours['end']);
+        } catch (\Exception $e) {
+            return [];
+        }
+
         $breaks = $workingHours['breaks'] ?? [];
 
         $availablePeriods = $this->getAvailablePeriods($startTime, $endTime, $bookings, $breaks);
@@ -131,8 +154,9 @@ class SlotGenerationService
                 $slotEnd = $current->copy();
 
                 $slots[] = [
-                    'start' => $slotStart,
-                    'end' => $slotEnd
+                    'start' => $slotStart->toDateTimeString(),
+                    'end' => $slotEnd->toDateTimeString(),
+                    'duration_minutes' => $slotDuration
                 ];
             }
         }
@@ -144,9 +168,15 @@ class SlotGenerationService
     {
         $periods = [['start' => $startTime, 'end' => $endTime]];
 
+        // Обрабатываем бронирования
         foreach ($bookings as $booking) {
             $newPeriods = [];
             foreach ($periods as $period) {
+                // Проверяем что период имеет правильную структуру
+                if (!isset($period['start']) || !isset($period['end'])) {
+                    continue;
+                }
+
                 if ($booking->start >= $period['end'] || $booking->end <= $period['start']) {
                     $newPeriods[] = $period;
                 } else {
@@ -161,12 +191,26 @@ class SlotGenerationService
             $periods = $newPeriods;
         }
 
+        // Обрабатываем перерывы
         foreach ($breaks as $break) {
-            $breakStart = Carbon::parse($startTime->format('Y-m-d') . ' ' . $break['start']);
-            $breakEnd = Carbon::parse($startTime->format('Y-m-d') . ' ' . $break['end']);
+            // Проверяем что перерыв имеет правильную структуру
+            if (!isset($break['start']) || !isset($break['end'])) {
+                continue;
+            }
+
+            try {
+                $breakStart = Carbon::parse($startTime->format('Y-m-d') . ' ' . $break['start']);
+                $breakEnd = Carbon::parse($startTime->format('Y-m-d') . ' ' . $break['end']);
+            } catch (\Exception $e) {
+                continue;
+            }
 
             $newPeriods = [];
             foreach ($periods as $period) {
+                if (!isset($period['start']) || !isset($period['end'])) {
+                    continue;
+                }
+
                 if ($breakStart >= $period['end'] || $breakEnd <= $period['start']) {
                     $newPeriods[] = $period;
                 } else {
@@ -186,20 +230,33 @@ class SlotGenerationService
 
     private function getWorkingHoursForDate($timetable, Carbon $date): ?array
     {
+        if (!$timetable || !isset($timetable->schedule)) {
+            return null;
+        }
+
         if ($timetable->type === 'static') {
             $dayOfWeek = strtolower($date->englishDayOfWeek);
-            return $timetable->schedule['days'][$dayOfWeek] ?? null;
+            return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
         } else {
             $dateKey = $date->format('m-d');
-            return $timetable->schedule['dates'][$dateKey] ?? null;
+            return isset($timetable->schedule['dates'][$dateKey]) ? $timetable->schedule['dates'][$dateKey] : null;
         }
     }
 
     private function isTimeInBreaks(Carbon $start, Carbon $end, array $breaks): bool
     {
         foreach ($breaks as $break) {
-            $breakStart = Carbon::parse($start->format('Y-m-d') . ' ' . $break['start']);
-            $breakEnd = Carbon::parse($start->format('Y-m-d') . ' ' . $break['end']);
+            // Проверяем что перерыв имеет правильную структуру
+            if (!isset($break['start']) || !isset($break['end'])) {
+                continue;
+            }
+
+            try {
+                $breakStart = Carbon::parse($start->format('Y-m-d') . ' ' . $break['start']);
+                $breakEnd = Carbon::parse($start->format('Y-m-d') . ' ' . $break['end']);
+            } catch (\Exception $e) {
+                continue;
+            }
 
             if ($start < $breakEnd && $end > $breakStart) {
                 return true;
@@ -208,15 +265,21 @@ class SlotGenerationService
         return false;
     }
 
-    private function isSlotAvailable(Resource $resource, Carbon $start, int $slots = 1): bool
+    private function isSlotAvailable(Resource $resource, string $start, int $slots = 1): bool
     {
+        try {
+            $startTime = Carbon::parse($start);
+        } catch (\Exception $e) {
+            return false;
+        }
+
         $config = $resource->getResourceConfig();
-        $duration = $config->slot_duration_minutes * $slots;
-        $end = $start->copy()->addMinutes($duration);
+        $duration = ($config->slot_duration_minutes ?? 60) * $slots;
+        $endTime = $startTime->copy()->addMinutes($duration);
 
         $overlapExists = Booking::where('resource_id', $resource->id)
-            ->where('start', '<', $end)
-            ->where('end', '>', $start)
+            ->where('start', '<', $endTime)
+            ->where('end', '>', $startTime)
             ->whereIn('status', ['pending', 'confirmed'])
             ->exists();
 
