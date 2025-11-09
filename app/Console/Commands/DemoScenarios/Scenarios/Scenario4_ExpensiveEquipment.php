@@ -1,5 +1,4 @@
 <?php
-// app/Console/Commands/DemoScenarios/Scenarios/Scenario4_ExpensiveEquipment.php
 
 namespace App\Console\Commands\DemoScenarios\Scenarios;
 
@@ -32,8 +31,9 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
                 'booker' => ['name' => 'Торопливый клиент']
             ]);
             $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
+            $this->runner->debug("Бронь создалась без ошибки, хотя min_advance_time = 2880 минут");
         } catch (\Exception $e) {
-            $this->info("   ✅ Ожидаемая ошибка: {$e->getMessage()}");
+            $this->info("   ✅ Ожидаемая ошибка: " . $this->shortenErrorMessage($e->getMessage()));
         }
 
         // ШАГ 2: Корректная бронь с ожиданием подтверждения
@@ -54,13 +54,7 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         // ШАГ 4: Бронь администратором с обходом ограничений
         $this->info("\n👨‍💼 ШАГ 4: Бронь администратором с обходом ограничений...");
 
-// Сначала проверяем доступность времени
-        $adminStart = now()->addMinutes(60)->format('Y-m-d H:i:s');
-        $adminEnd = now()->addMinutes(180)->format('Y-m-d H:i:s');
-
-// Для администратора используем время, которое гарантированно доступно
-// Например, следующий день или другое свободное время
-        $adminStart = '2024-01-18 10:00:00'; // Используем фиксированное время, которое точно доступно
+        $adminStart = '2024-01-18 10:00:00';
         $adminEnd = '2024-01-18 12:00:00';
 
         $adminBooking = $this->runner->createBooking([
@@ -75,10 +69,16 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         // ШАГ 5: Попытка отмены в последний момент (должна быть ошибка)
         $this->info("\n❌ ШАГ 5: Попытка отмены в последний момент...");
         try {
-            $this->runner->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
-            $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
+            $result = $this->runner->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
+
+            // Проверяем результат отмены
+            if (isset($result['status']) && $result['status'] === 'cancelled_by_client') {
+                $this->error("   🚨 НЕОЖИДАННО: Отмена прошла успешно, хотя должна была быть ошибкой!");
+            } else {
+                $this->error("   🚨 НЕОЖИДАННО: Отмена не вызвала ошибку!");
+            }
         } catch (\Exception $e) {
-            $this->info("   ✅ Ожидаемая ошибка: {$e->getMessage()}");
+            $this->info("   ✅ Ожидаемая ошибка: " . $this->shortenErrorMessage($e->getMessage()));
         }
 
         $this->info("\n🎉 СЦЕНАРИЙ 4 ЗАВЕРШЕН: Строгие ограничения для ценных ресурсов работают корректно!");
@@ -91,5 +91,16 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         } else {
             $this->error("   ❌ {$message}: ожидался {$expectedStatus}, получен {$booking['status']}");
         }
+    }
+
+    /**
+     * Сокращает длинные сообщения об ошибках для лучшего отображения
+     */
+    private function shortenErrorMessage(string $message): string
+    {
+        if (strlen($message) > 80) {
+            return substr($message, 0, 77) . '...';
+        }
+        return $message;
     }
 }

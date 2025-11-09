@@ -76,13 +76,7 @@ class ScenarioRunnerService
         $request->merge($data);
 
         $response = $this->bookingController->createBooking($request);
-        $responseData = $response->getData(true);
-
-        if (isset($responseData['data'])) {
-            return $responseData['data'];
-        }
-
-        throw new \Exception($responseData['error'] ?? 'Ошибка создания брони');
+        return $this->handleApiResponse($response, 'Создание брони');
     }
 
     /**
@@ -91,9 +85,7 @@ class ScenarioRunnerService
     public function confirmBooking(int $bookingId): array
     {
         $response = $this->bookingController->confirmBooking($bookingId);
-        $responseData = $response->getData(true);
-
-        return $responseData['data'];
+        return $this->handleApiResponse($response, 'Подтверждение брони');
     }
 
     /**
@@ -101,16 +93,19 @@ class ScenarioRunnerService
      */
     public function cancelBooking(int $bookingId, string $cancelledBy, ?string $reason = null): array
     {
-        $request = new CancelBookingRequest();
-        $request->merge([
-            'cancelled_by' => $cancelledBy,
-            'reason' => $reason
-        ]);
+        try {
+            $request = new CancelBookingRequest();
+            $request->merge([
+                'cancelled_by' => $cancelledBy,
+                'reason' => $reason
+            ]);
 
-        $response = $this->bookingController->cancelBooking($bookingId, $request);
-        $responseData = $response->getData(true);
+            $response = $this->bookingController->cancelBooking($bookingId, $request);
+            return $this->handleApiResponse($response, 'Отмена брони');
 
-        return $responseData['data'];
+        } catch (\Exception $e) {
+            throw new \Exception('Ошибка отмены брони: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -126,9 +121,7 @@ class ScenarioRunnerService
         ]);
 
         $response = $this->bookingController->rescheduleBooking($bookingId, $request);
-        $responseData = $response->getData(true);
-
-        return $responseData['data'];
+        return $this->handleApiResponse($response, 'Перенос брони');
     }
 
     /**
@@ -172,6 +165,34 @@ class ScenarioRunnerService
     {
         // This method will be called from scenarios, so we need to handle output there
         // This is just a placeholder - actual implementation depends on how we want to handle output
+    }
+
+    /**
+     * Универсальный метод для обработки API ответов
+     */
+    private function handleApiResponse($response, string $action): array
+    {
+        $responseData = $response->getData(true);
+
+        if (!isset($responseData['data']) && !isset($responseData['error'])) {
+            throw new \Exception("{$action}: Неожиданный формат ответа API");
+        }
+
+        if (isset($responseData['error'])) {
+            throw new \Exception("{$action}: {$responseData['error']}");
+        }
+
+        return $responseData['data'];
+    }
+
+    /**
+     * Отладочный метод для логирования
+     */
+    public function debug(string $message, array $context = []): void
+    {
+        if (app()->runningInConsole()) {
+            echo "   🔍 [DEBUG] {$message}: " . json_encode($context) . "\n";
+        }
     }
 
     /**
