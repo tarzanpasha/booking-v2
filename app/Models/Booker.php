@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Booker extends Model
 {
@@ -23,8 +23,9 @@ class Booker extends Model
         'metadata' => 'array'
     ];
 
-    public function bookings(): MorphToMany
+    public function bookings(): BelongsToMany
     {
-        return $this->morphedByMany(Booking::class, 'bookable');
+        return $this->belongsToMany(Booking::class, 'booking_booker')
+            ->withTimestamps();
     }
 }
