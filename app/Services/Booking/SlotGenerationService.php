@@ -242,6 +242,7 @@ class SlotGenerationService
         return $periods;
     }
 
+    // В app/Services/Booking/SlotGenerationService.php
     private function getWorkingHoursForDate($timetable, Carbon $date): ?array
     {
         if (!$timetable || !isset($timetable->schedule)) {
@@ -259,7 +260,24 @@ class SlotGenerationService
             }
 
             $dayOfWeek = strtolower($date->englishDayOfWeek);
-            return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
+
+            // Проверяем, есть ли рабочие часы для этого дня недели
+            if (!isset($timetable->schedule['days'][$dayOfWeek])) {
+                return null;
+            }
+
+            $daySchedule = $timetable->schedule['days'][$dayOfWeek];
+
+            // Проверяем, что день действительно рабочий (есть рабочие часы)
+            if (!isset($daySchedule['working_hours']) ||
+                !isset($daySchedule['working_hours']['start']) ||
+                !isset($daySchedule['working_hours']['end']) ||
+                empty($daySchedule['working_hours']['start']) ||
+                empty($daySchedule['working_hours']['end'])) {
+                return null;
+            }
+
+            return $daySchedule;
         } else {
             $dateKey = $date->format('m-d');
             return isset($timetable->schedule['dates'][$dateKey]) ? $timetable->schedule['dates'][$dateKey] : null;

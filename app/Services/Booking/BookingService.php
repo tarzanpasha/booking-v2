@@ -275,18 +275,27 @@ class BookingService
         return $this->slotService->getNextAvailableSlots($resource, $from, $count, $onlyToday);
     }
 
+    // В app/Services/Booking/BookingService.php
     private function validateBookingTime(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): void
     {
         $now = now();
 
         // Проверка минимального времени для бронирования
-        if ($config->min_advance_time > 0 && $start->diffInMinutes($now) < $config->min_advance_time) {
-            throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала');
+        if ($config->min_advance_time > 0) {
+            $minutesUntilStart = $start->diffInMinutes($now, false); // false чтобы получить отрицательное значение для прошедшего времени
+
+            if ($minutesUntilStart < $config->min_advance_time) {
+                throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала. До начала осталось: ' . $minutesUntilStart . ' минут');
+            }
         }
 
         // Для строгих ограничений (min_advance_time = 0) - бронирование только в будущем
         if ($config->min_advance_time === 0 && $start <= $now) {
             throw new \Exception('Бронирование невозможно для прошедшего времени');
+        }
+
+        if ($start >= $end) {
+            throw new \Exception('Время окончания должно быть после времени начала');
         }
 
         if (!$this->isValidSlotTime($resource, $start, $end, $config)) {

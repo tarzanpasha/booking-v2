@@ -1785,13 +1785,7 @@ class ScenarioRunnerService
         $request->merge($data);
 
         $response = $this->bookingController->createBooking($request);
-        $responseData = $response->getData(true);
-
-        if (isset($responseData['data'])) {
-            return $responseData['data'];
-        }
-
-        throw new \Exception($responseData['error'] ?? 'Ошибка создания брони');
+        return $this->handleApiResponse($response, 'Создание брони');
     }
 
     /**
@@ -1800,9 +1794,7 @@ class ScenarioRunnerService
     public function confirmBooking(int $bookingId): array
     {
         $response = $this->bookingController->confirmBooking($bookingId);
-        $responseData = $response->getData(true);
-
-        return $responseData['data'];
+        return $this->handleApiResponse($response, 'Подтверждение брони');
     }
 
     /**
@@ -1810,16 +1802,19 @@ class ScenarioRunnerService
      */
     public function cancelBooking(int $bookingId, string $cancelledBy, ?string $reason = null): array
     {
-        $request = new CancelBookingRequest();
-        $request->merge([
-            'cancelled_by' => $cancelledBy,
-            'reason' => $reason
-        ]);
+        try {
+            $request = new CancelBookingRequest();
+            $request->merge([
+                'cancelled_by' => $cancelledBy,
+                'reason' => $reason
+            ]);
 
-        $response = $this->bookingController->cancelBooking($bookingId, $request);
-        $responseData = $response->getData(true);
+            $response = $this->bookingController->cancelBooking($bookingId, $request);
+            return $this->handleApiResponse($response, 'Отмена брони');
 
-        return $responseData['data'];
+        } catch (\Exception $e) {
+            throw new \Exception('Ошибка отмены брони: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -1835,9 +1830,7 @@ class ScenarioRunnerService
         ]);
 
         $response = $this->bookingController->rescheduleBooking($bookingId, $request);
-        $responseData = $response->getData(true);
-
-        return $responseData['data'];
+        return $this->handleApiResponse($response, 'Перенос брони');
     }
 
     /**
@@ -1881,6 +1874,34 @@ class ScenarioRunnerService
     {
         // This method will be called from scenarios, so we need to handle output there
         // This is just a placeholder - actual implementation depends on how we want to handle output
+    }
+
+    /**
+     * Универсальный метод для обработки API ответов
+     */
+    private function handleApiResponse($response, string $action): array
+    {
+        $responseData = $response->getData(true);
+
+        if (!isset($responseData['data']) && !isset($responseData['error'])) {
+            throw new \Exception("{$action}: Неожиданный формат ответа API");
+        }
+
+        if (isset($responseData['error'])) {
+            throw new \Exception("{$action}: {$responseData['error']}");
+        }
+
+        return $responseData['data'];
+    }
+
+    /**
+     * Отладочный метод для логирования
+     */
+    public function debug(string $message, array $context = []): void
+    {
+        if (app()->runningInConsole()) {
+            echo "   🔍 [DEBUG] {$message}: " . json_encode($context) . "\n";
+        }
     }
 
     /**
@@ -2235,7 +2256,6 @@ class Scenario5_HotelRoom extends BaseScenario
 
 === app/Console/Commands/DemoScenarios/Scenarios/Scenario4_ExpensiveEquipment.php ===
 <?php
-// app/Console/Commands/DemoScenarios/Scenarios/Scenario4_ExpensiveEquipment.php
 
 namespace App\Console\Commands\DemoScenarios\Scenarios;
 
@@ -2268,8 +2288,9 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
                 'booker' => ['name' => 'Торопливый клиент']
             ]);
             $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
+            $this->runner->debug("Бронь создалась без ошибки, хотя min_advance_time = 2880 минут");
         } catch (\Exception $e) {
-            $this->info("   ✅ Ожидаемая ошибка: {$e->getMessage()}");
+            $this->info("   ✅ Ожидаемая ошибка: " . $this->shortenErrorMessage($e->getMessage()));
         }
 
         // ШАГ 2: Корректная бронь с ожиданием подтверждения
@@ -2290,13 +2311,7 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         // ШАГ 4: Бронь администратором с обходом ограничений
         $this->info("\n👨‍💼 ШАГ 4: Бронь администратором с обходом ограничений...");
 
-// Сначала проверяем доступность времени
-        $adminStart = now()->addMinutes(60)->format('Y-m-d H:i:s');
-        $adminEnd = now()->addMinutes(180)->format('Y-m-d H:i:s');
-
-// Для администратора используем время, которое гарантированно доступно
-// Например, следующий день или другое свободное время
-        $adminStart = '2024-01-18 10:00:00'; // Используем фиксированное время, которое точно доступно
+        $adminStart = '2024-01-18 10:00:00';
         $adminEnd = '2024-01-18 12:00:00';
 
         $adminBooking = $this->runner->createBooking([
@@ -2311,10 +2326,16 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         // ШАГ 5: Попытка отмены в последний момент (должна быть ошибка)
         $this->info("\n❌ ШАГ 5: Попытка отмены в последний момент...");
         try {
-            $this->runner->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
-            $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
+            $result = $this->runner->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
+
+            // Проверяем результат отмены
+            if (isset($result['status']) && $result['status'] === 'cancelled_by_client') {
+                $this->error("   🚨 НЕОЖИДАННО: Отмена прошла успешно, хотя должна была быть ошибкой!");
+            } else {
+                $this->error("   🚨 НЕОЖИДАННО: Отмена не вызвала ошибку!");
+            }
         } catch (\Exception $e) {
-            $this->info("   ✅ Ожидаемая ошибка: {$e->getMessage()}");
+            $this->info("   ✅ Ожидаемая ошибка: " . $this->shortenErrorMessage($e->getMessage()));
         }
 
         $this->info("\n🎉 СЦЕНАРИЙ 4 ЗАВЕРШЕН: Строгие ограничения для ценных ресурсов работают корректно!");
@@ -2327,6 +2348,17 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         } else {
             $this->error("   ❌ {$message}: ожидался {$expectedStatus}, получен {$booking['status']}");
         }
+    }
+
+    /**
+     * Сокращает длинные сообщения об ошибках для лучшего отображения
+     */
+    private function shortenErrorMessage(string $message): string
+    {
+        if (strlen($message) > 80) {
+            return substr($message, 0, 77) . '...';
+        }
+        return $message;
     }
 }
 
@@ -2782,6 +2814,63 @@ class DemoBookingScenarios extends Command
         ];
 
         return $scenarios[$scenarioId] ?? null;
+    }
+}
+
+
+
+=== app/Console/Commands/CheckResourceConfigs.php ===
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use App\Models\Resource;
+
+class CheckResourceConfigs extends Command
+{
+    protected $signature = 'check:resource-configs {scenario?}';
+    protected $description = 'Проверить конфигурации ресурсов для сценариев';
+
+    public function handle(): void
+    {
+        $scenarioId = $this->argument('scenario');
+
+        if ($scenarioId) {
+            $this->checkScenarioConfig($scenarioId);
+        } else {
+            for ($i = 1; $i <= 8; $i++) {
+                $this->checkScenarioConfig($i);
+            }
+        }
+    }
+
+    private function checkScenarioConfig(int $scenarioId): void
+    {
+        $companyId = $scenarioId * 100;
+
+        $resources = Resource::where('company_id', $companyId)->get();
+
+        $this->info("\n🔧 Проверка конфигурации для сценария {$scenarioId}:");
+
+        if ($resources->count() === 0) {
+            $this->warn("   ❌ Ресурсы не найдены для компании ID: {$companyId}");
+            return;
+        }
+
+        foreach ($resources as $resource) {
+            $config = $resource->getResourceConfig();
+
+            $this->line("   Ресурс ID: {$resource->id}");
+            $this->line("   - min_advance_time: {$config->min_advance_time} мин");
+            $this->line("   - cancellation_time: " . ($config->cancellation_time ?? 'null') . " мин");
+            $this->line("   - reschedule_time: " . ($config->reschedule_time ?? 'null') . " мин");
+            $this->line("   - require_confirmation: " . ($config->requiresConfirmation() ? 'да' : 'нет'));
+            $this->line("   - slot_duration_minutes: {$config->slot_duration_minutes} мин");
+            $this->line("   - slot_strategy: {$config->slot_strategy->value}");
+            $this->line("   - max_participants: " . ($config->max_participants ?? 'null'));
+            $this->line("");
+        }
     }
 }
 
@@ -5378,6 +5467,7 @@ class SlotGenerationService
         return $periods;
     }
 
+    // В app/Services/Booking/SlotGenerationService.php
     private function getWorkingHoursForDate($timetable, Carbon $date): ?array
     {
         if (!$timetable || !isset($timetable->schedule)) {
@@ -5395,7 +5485,24 @@ class SlotGenerationService
             }
 
             $dayOfWeek = strtolower($date->englishDayOfWeek);
-            return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
+
+            // Проверяем, есть ли рабочие часы для этого дня недели
+            if (!isset($timetable->schedule['days'][$dayOfWeek])) {
+                return null;
+            }
+
+            $daySchedule = $timetable->schedule['days'][$dayOfWeek];
+
+            // Проверяем, что день действительно рабочий (есть рабочие часы)
+            if (!isset($daySchedule['working_hours']) ||
+                !isset($daySchedule['working_hours']['start']) ||
+                !isset($daySchedule['working_hours']['end']) ||
+                empty($daySchedule['working_hours']['start']) ||
+                empty($daySchedule['working_hours']['end'])) {
+                return null;
+            }
+
+            return $daySchedule;
         } else {
             $dateKey = $date->format('m-d');
             return isset($timetable->schedule['dates'][$dateKey]) ? $timetable->schedule['dates'][$dateKey] : null;
@@ -5726,18 +5833,27 @@ class BookingService
         return $this->slotService->getNextAvailableSlots($resource, $from, $count, $onlyToday);
     }
 
+    // В app/Services/Booking/BookingService.php
     private function validateBookingTime(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): void
     {
         $now = now();
 
         // Проверка минимального времени для бронирования
-        if ($config->min_advance_time > 0 && $start->diffInMinutes($now) < $config->min_advance_time) {
-            throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала');
+        if ($config->min_advance_time > 0) {
+            $minutesUntilStart = $start->diffInMinutes($now, false); // false чтобы получить отрицательное значение для прошедшего времени
+
+            if ($minutesUntilStart < $config->min_advance_time) {
+                throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала. До начала осталось: ' . $minutesUntilStart . ' минут');
+            }
         }
 
         // Для строгих ограничений (min_advance_time = 0) - бронирование только в будущем
         if ($config->min_advance_time === 0 && $start <= $now) {
             throw new \Exception('Бронирование невозможно для прошедшего времени');
+        }
+
+        if ($start >= $end) {
+            throw new \Exception('Время окончания должно быть после времени начала');
         }
 
         if (!$this->isValidSlotTime($resource, $start, $end, $config)) {
