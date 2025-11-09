@@ -55,9 +55,16 @@ class SlotGenerationService
             return [];
         }
 
+        $workingHours = $this->getWorkingHoursForDate($timetable, $date);
+
+        // Если рабочие часы не найдены (праздник или выходной) - возвращаем пустой массив
+        if (!$workingHours) {
+            return [];
+        }
+
         $slots = $config->isFixedStrategy()
-            ? $this->generateFixedSlots($resource, $date, $timetable, $config)
-            : $this->generateDynamicSlots($resource, $date, $timetable, $config);
+            ? $this->generateFixedSlots($resource, $date, $workingHours, $config)
+            : $this->generateDynamicSlots($resource, $date, $workingHours, $config);
 
         // Гарантируем что все слоты имеют правильную структуру
         return array_filter($slots, function($slot) {
@@ -65,14 +72,13 @@ class SlotGenerationService
         });
     }
 
-    private function generateFixedSlots(Resource $resource, Carbon $date, $timetable, ResourceConfig $config): array
+    private function generateFixedSlots(Resource $resource, Carbon $date, array $workingHours, ResourceConfig $config): array
     {
-        $currentDate = $this->getWorkingHoursForDate($timetable, $date);
-        if (!$currentDate || !isset($currentDate['working_hours'])) {
+        if (!isset($workingHours['working_hours'])) {
             return [];
         }
 
-        $workingHours = $currentDate['working_hours'];
+        $workingHours = $workingHours['working_hours'];
         $slots = [];
         $slotDuration = $config->slot_duration_minutes ?? 60;
 
@@ -83,7 +89,7 @@ class SlotGenerationService
             return [];
         }
 
-        $breaks = $currentDate['breaks'] ?? [];
+        $breaks = $workingHours['breaks'] ?? [];
         $current = $startTime->copy();
 
         while ($current->lt($endTime)) {
@@ -121,10 +127,9 @@ class SlotGenerationService
         return $slots;
     }
 
-    private function generateDynamicSlots(Resource $resource, Carbon $date, $timetable, ResourceConfig $config): array
+    private function generateDynamicSlots(Resource $resource, Carbon $date, array $workingHours, ResourceConfig $config): array
     {
-        $workingHours = $this->getWorkingHoursForDate($timetable, $date);
-        if (!$workingHours || !isset($workingHours['working_hours'])) {
+        if (!isset($workingHours['working_hours'])) {
             return [];
         }
 
@@ -243,7 +248,16 @@ class SlotGenerationService
             return null;
         }
 
+        // Проверяем праздничные дни для статического расписания
         if ($timetable->type === 'static') {
+            $dateKey = $date->format('m-d');
+            $holidays = $timetable->schedule['holidays'] ?? [];
+
+            // Если дата в праздниках - возвращаем null
+            if (in_array($dateKey, $holidays)) {
+                return null;
+            }
+
             $dayOfWeek = strtolower($date->englishDayOfWeek);
             return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
         } else {
