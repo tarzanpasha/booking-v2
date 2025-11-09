@@ -45,11 +45,26 @@ class BookingService
         return $this->isRangeAvailable($resource, $startTime, $endTime);
     }
 
+    // В файле app/Services/Booking/BookingService.php
+
     public function isRangeAvailable(Resource $resource, Carbon $from, Carbon $to): bool
     {
         $overlapExists = Booking::where('resource_id', $resource->id)
-            ->where('start', '<', $to)
-            ->where('end', '>', $from)
+            ->where(function ($query) use ($from, $to) {
+                $query->where(function ($q) use ($from, $to) {
+                    // Бронь начинается внутри запрашиваемого диапазона
+                    $q->where('start', '>=', $from)
+                        ->where('start', '<', $to);
+                })->orWhere(function ($q) use ($from, $to) {
+                    // Бронь заканчивается внутри запрашиваемого диапазона
+                    $q->where('end', '>', $from)
+                        ->where('end', '<=', $to);
+                })->orWhere(function ($q) use ($from, $to) {
+                    // Бронь полностью содержит запрашиваемый диапазон
+                    $q->where('start', '<', $from)
+                        ->where('end', '>', $to);
+                });
+            })
             ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
             ->exists();
 
@@ -270,13 +285,13 @@ class BookingService
         $timetable = $resource->getEffectiveTimetable();
 
         if (!$timetable) {
-            return true; // Если нет расписания, считаем что перерывов нет
+            return true;
         }
 
         $workingHours = $this->getWorkingHoursForDate($timetable, $start);
 
         if (!$workingHours) {
-            return true; // Если нет рабочих часов на эту дату
+            return true;
         }
 
         $breaks = $workingHours['breaks'] ?? [];
@@ -293,35 +308,30 @@ class BookingService
                 continue;
             }
 
-            // ИСПРАВЛЕННАЯ ЛОГИКА ПРОВЕРКИ ПЕРЕСЕЧЕНИЙ:
-            // Пересечение есть только если время бронирования ПЕРЕСЕКАЕТ перерыв
-            // Не считается пересечением:
-            // - бронь заканчивается точно в начале перерыва ($end == $breakStart)
-            // - бронь начинается точно в конце перерыва ($start == $breakEnd)
-
-            $startInBreak = $start->between($breakStart, $breakEnd, false); // false = исключая границы
-            $endInBreak = $end->between($breakStart, $breakEnd, false);
-            $containsBreak = $start->lt($breakStart) && $end->gt($breakEnd);
-            $containedByBreak = $start->gt($breakStart) && $end->lt($breakEnd);
-
-            // Дополнительные проверки для пограничных случаев
-            $touchesBreakStart = $end->eq($breakStart); // заканчивается точно в начале перерыва
-            $touchesBreakEnd = $start->eq($breakEnd);   // начинается точно в конце перерыва
-
+            // Упрощенная и корректная проверка пересечений
             // Пересечение есть если:
-            // - начало ИЛИ конец брони внутри перерыва (исключая границы)
+            // - начало брони внутри перерыва (исключая конец перерыва)
+            // - конец брони внутри перерыва (исключая начало перерыва)
             // - бронь полностью содержит перерыв
             // - перерыв полностью содержит бронь
-            if (($startInBreak && !$start->eq($breakEnd)) ||
-                ($endInBreak && !$end->eq($breakStart)) ||
-                $containsBreak ||
-                $containedByBreak) {
+
+            $startInBreak = $start->between($breakStart, $breakEnd, false);
+            $endInBreak = $end->between($breakStart, $breakEnd, false);
+            $spansBreak = $start->lt($breakStart) && $end->gt($breakEnd);
+            $containedInBreak = $start->gte($breakStart) && $end->lte($breakEnd);
+
+            // ДОПОЛНЕНИЕ: разрешаем касание границ перерыва
+            $touchesBreakStart = $end->eq($breakStart); // заканчивается точно в начале перерыва - РАЗРЕШАЕМ
+            $touchesBreakEnd = $start->eq($breakEnd);   // начинается точно в конце перерыва - РАЗРЕШАЕМ
+
+            if ($startInBreak || $endInBreak || $spansBreak || $containedInBreak) {
                 return false;
             }
 
-            // Дополнительная проверка: если бронь начинается ДО перерыва и заканчивается ПОСЛЕ перерыва
-            // но не полностью содержит его (граничные случаи)
-            if ($start->lt($breakStart) && $end->gt($breakEnd)) {
+            // Запрещаем только если бронь начинается ДО и заканчивается ПОСЛЕ перерыва
+            // (но не просто касается границ)
+            if ($start->lt($breakStart) && $end->gt($breakEnd) &&
+                !$touchesBreakStart && !$touchesBreakEnd) {
                 return false;
             }
         }
