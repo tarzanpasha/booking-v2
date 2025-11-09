@@ -73,12 +73,6 @@ class SlotGenerationService
         }
 
         $workingHours = $currentDate['working_hours'];
-
-        // Проверяем что working_hours имеет нужные поля
-        if (!isset($workingHours['start']) || !isset($workingHours['end'])) {
-            return [];
-        }
-
         $slots = [];
         $slotDuration = $config->slot_duration_minutes ?? 60;
 
@@ -90,7 +84,6 @@ class SlotGenerationService
         }
 
         $breaks = $currentDate['breaks'] ?? [];
-
         $current = $startTime->copy();
 
         while ($current->lt($endTime)) {
@@ -98,7 +91,23 @@ class SlotGenerationService
 
             if ($slotEnd->gt($endTime)) break;
 
-            if (!$this->isTimeInBreaks($current, $slotEnd, $breaks)) {
+            // ИСПРАВЛЕННАЯ ПРОВЕРКА: используем исправленный метод проверки перерывов
+            $slotAvailable = true;
+            foreach ($breaks as $break) {
+                if (!isset($break['start']) || !isset($break['end'])) continue;
+
+                $breakStart = Carbon::parse($date->format('Y-m-d') . ' ' . $break['start']);
+                $breakEnd = Carbon::parse($date->format('Y-m-d') . ' ' . $break['end']);
+
+                // Слот не должен пересекаться с перерывом
+                if ($current->lt($breakEnd) && $slotEnd->gt($breakStart) &&
+                    !$slotEnd->eq($breakStart) && !$current->eq($breakEnd)) {
+                    $slotAvailable = false;
+                    break;
+                }
+            }
+
+            if ($slotAvailable) {
                 $slots[] = [
                     'start' => $current->copy()->toDateTimeString(),
                     'end' => $slotEnd->copy()->toDateTimeString(),
