@@ -11,6 +11,10 @@ use Carbon\Carbon;
 
 class CreateBookingAction
 {
+    public function __construct(
+        private \App\Services\Booking\BookingService $bookingService
+    ) {}
+
     public function execute(
         Resource $resource,
         string $start,
@@ -22,6 +26,11 @@ class CreateBookingAction
             $config = $resource->getResourceConfig();
             $startTime = Carbon::parse($start);
             $endTime = Carbon::parse($end);
+
+            // Используем новый метод для комплексной проверки
+            if (!$this->bookingService->isTimeRangeAvailable($resource, $startTime, $endTime)) {
+                throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
+            }
 
             $status = $config->requiresConfirmation() && !$isAdmin
                 ? BookingStatus::PENDING

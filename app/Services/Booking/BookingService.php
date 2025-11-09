@@ -17,6 +17,24 @@ class BookingService
         private SlotGenerationService $slotService
     ) {}
 
+    /**
+     * Проверяет доступность диапазона с учетом перерывов и других бронирований
+     */
+    public function isTimeRangeAvailable(Resource $resource, Carbon $start, Carbon $end): bool
+    {
+        // Проверяем пересечение с другими бронированиями
+        if (!$this->isRangeAvailable($resource, $start, $end)) {
+            return false;
+        }
+
+        // Проверяем пересечение с перерывами
+        if (!$this->isTimeAvailableConsideringBreaks($resource, $start, $end)) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function isSlotAvailable(Resource $resource, string $start, int $slots = 1): bool
     {
         $startTime = Carbon::parse($start);
@@ -54,8 +72,9 @@ class BookingService
                 $this->validateBookingTime($resource, $startTime, $endTime, $config);
             }
 
-            if (!$this->isRangeAvailable($resource, $startTime, $endTime)) {
-                throw new \Exception('Выбранный временной диапазон уже занят');
+            // Используем новый метод для комплексной проверки
+            if (!$this->isTimeRangeAvailable($resource, $startTime, $endTime)) {
+                throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
             }
 
             $status = $config->requiresConfirmation() && !$isAdmin
@@ -157,8 +176,9 @@ class BookingService
             $newStartTime = Carbon::parse($newStart);
             $newEndTime = Carbon::parse($newEnd);
 
-            if (!$this->isRangeAvailable($resource, $newStartTime, $newEndTime)) {
-                throw new \Exception('Новый временной диапазон уже занят');
+            // Используем новый метод для комплексной проверки нового времени
+            if (!$this->isTimeRangeAvailable($resource, $newStartTime, $newEndTime)) {
+                throw new \Exception('Новый временной диапазон недоступен (занят или пересекается с перерывом)');
             }
 
             $booking->update([
@@ -214,7 +234,7 @@ class BookingService
             $slots = $this->slotService->generateSlotsForDate($resource, $start);
 
             foreach ($slots as $slot) {
-                if ($slot['start']->eq($start) && $slot['end']->eq($end)) {
+                if ($slot['start'] === $start->toDateTimeString() && $slot['end'] === $end->toDateTimeString()) {
                     return true;
                 }
             }
@@ -240,5 +260,80 @@ class BookingService
         );
 
         $booking->bookers()->syncWithoutDetaching([$booker->id]);
+    }
+
+    /**
+     * Проверяет доступность времени с учетом перерывов
+     */
+    public function isTimeAvailableConsideringBreaks(Resource $resource, Carbon $start, Carbon $end): bool
+    {
+        $timetable = $resource->getEffectiveTimetable();
+
+        if (!$timetable) {
+            return true; // Если нет расписания, считаем что перерывов нет
+        }
+
+        $workingHours = $this->getWorkingHoursForDate($timetable, $start);
+
+        if (!$workingHours) {
+            return true; // Если нет рабочих часов на эту дату
+        }
+
+        $breaks = $workingHours['breaks'] ?? [];
+
+        foreach ($breaks as $break) {
+            if (!isset($break['start']) || !isset($break['end'])) {
+                continue;
+            }
+
+            try {
+                $breakStart = Carbon::parse($start->format('Y-m-d') . ' ' . $break['start']);
+                $breakEnd = Carbon::parse($start->format('Y-m-d') . ' ' . $break['end']);
+            } catch (\Exception $e) {
+                continue;
+            }
+
+            // Уточненная логика проверки пересечения:
+            // Пересечение есть если:
+            // - начало брони внутри перерыва (исключая конец перерыва)
+            // - конец брони внутри перерыва (исключая начало перерыва)
+            // - бронь полностью содержит перерыв
+            // - перерыв полностью содержит бронь
+            $startInBreak = $start->between($breakStart, $breakEnd, false);
+            $endInBreak = $end->between($breakStart, $breakEnd, false);
+            $containsBreak = $start->lt($breakStart) && $end->gt($breakEnd);
+            $containedByBreak = $start->gte($breakStart) && $end->lte($breakEnd);
+
+            // Допустимые случаи (не считаются пересечением):
+            // - бронь заканчивается точно в начале перерыва ($end == $breakStart)
+            // - бронь начинается точно в конце перерыва ($start == $breakEnd)
+
+            if (($startInBreak && $start->ne($breakEnd)) ||
+                ($endInBreak && $end->ne($breakStart)) ||
+                $containsBreak ||
+                $containedByBreak) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Получает рабочие часы для даты
+     */
+    private function getWorkingHoursForDate($timetable, Carbon $date): ?array
+    {
+        if (!$timetable || !isset($timetable->schedule)) {
+            return null;
+        }
+
+        if ($timetable->type === 'static') {
+            $dayOfWeek = strtolower($date->englishDayOfWeek);
+            return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
+        } else {
+            $dateKey = $date->format('m-d');
+            return isset($timetable->schedule['dates'][$dateKey]) ? $timetable->schedule['dates'][$dateKey] : null;
+        }
     }
 }
