@@ -240,6 +240,11 @@ class BookingService
     ): Booking {
         return DB::transaction(function () use ($bookingId, $newStart, $newEnd, $requestedBy) {
             $booking = Booking::findOrFail($bookingId);
+
+            if ($booking->is_group_booking && $requestedBy == 'client') {
+                throw new \Exception('Невозможно перенести групповую бронь не админу');
+            }
+
             $resource = $booking->resource;
             $config = $resource->getResourceConfig();
 
@@ -255,7 +260,7 @@ class BookingService
             $newEndTime = Carbon::parse($newEnd);
 
             // Используем новый метод для комплексной проверки нового времени
-            if (!$this->isTimeRangeAvailable($resource, $newStartTime, $newEndTime)) {
+            if ($requestedBy!=='admin' && !$this->isTimeRangeAvailable($resource, $newStartTime, $newEndTime)) {
                 throw new \Exception('Новый временной диапазон недоступен (занят или пересекается с перерывом)');
             }
 
@@ -339,10 +344,23 @@ class BookingService
 
     public function attachBooker(Booking $booking, Model $booker): void
     {
-        $booker->bookings()->syncWithoutDetaching([$booking->id => [
-            'status' => $booking->status,
-            'reason' => $booking->reason,
-        ]]);
+        $config = $booking->resource->getResourceConfig();
+        $countBookers = $booking->bookables()
+            ->where('status', BookingStatus::CONFIRMED)
+            ->get()
+            ->count();
+        if ($countBookers < $config->max_participants) {
+            $booker->bookings()->syncWithoutDetaching([$booking->id => [
+                'status' => $booking->status,
+                'reason' => $booking->reason,
+            ]]);
+        } else {
+            $booker->bookings()->syncWithoutDetaching([$booking->id => [
+                'status' => BookingStatus::REJECTED,
+                'reason' => "Бронь переполнена",
+            ]]);
+        }
+
     }
 
     /**
