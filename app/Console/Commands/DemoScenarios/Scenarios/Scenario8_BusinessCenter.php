@@ -34,7 +34,7 @@ class Scenario8_BusinessCenter extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-22 13:30:00',
             'end' => '2024-01-22 15:00:00',
-            'booker' => ['name' => 'Бизнес-встреча']
+            'booker' => $booker = $this->getNewUser(['name' => 'Бизнес-встреча', 'email' => 'test@test.ru'])
         ]);
         $this->checkStatus($betweenBreaksBooking, 'pending', "Бронь между перерывами создана");
 

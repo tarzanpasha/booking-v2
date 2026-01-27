@@ -26,9 +26,9 @@ class Scenario5_HotelRoom extends BaseScenario
         $this->info("\n📅 ШАГ 1: Бронь номера на 3 дня...");
         $threeDayBooking = $this->runner->createBooking([
             'resource_id' => $resourceId,
-            'start' => '2024-01-20 14:00:00',
-            'end' => '2024-01-23 12:00:00',
-            'booker' => ['name' => 'Гость отеля', 'email' => 'guest@example.com']
+            'start' => '2026-01-26 14:00:00',
+            'end' => '2026-01-29 15:00:00',
+            'booker' => $this->getNewUser(['name' => 'Гость отеля', 'email' => 'guest@example.com'])
         ]);
         $this->checkStatus($threeDayBooking, 'confirmed', "Бронь на 3 дня создана");
 
@@ -39,7 +39,7 @@ class Scenario5_HotelRoom extends BaseScenario
                 'resource_id' => $resourceId,
                 'start' => '2024-01-22 10:00:00',
                 'end' => '2024-01-24 12:00:00',
-                'booker' => ['name' => 'Конфликтный гость']
+                'booker' => $this->getNewUser(['name' => 'Конфликтный гость', 'email' => 'guest@example.com'])
             ]);
             $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
         } catch (\Exception $e) {
@@ -52,7 +52,7 @@ class Scenario5_HotelRoom extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-23 14:00:00',
             'end' => '2024-01-25 12:00:00',
-            'booker' => ['name' => 'Следующий гость']
+            'booker' => $this->getNewUser(['name' => 'Следующий гость', 'email' => 'guest@example.com'])
         ]);
         $this->checkStatus($nextBooking, 'confirmed', "Бронь после освобождения создана");
 

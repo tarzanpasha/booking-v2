@@ -5,13 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckAvailabilityRequest;
 use App\Http\Requests\GetResourceBookingsRequest;
-use App\Models\Booking;
 use App\Models\Resource;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\SlotGenerationService;
-use App\Actions\CreateBookingAction;
-use App\Actions\ConfirmBookingAction;
-use App\Actions\CancelBookingAction;
 use App\Actions\RescheduleBookingAction;
 use App\Http\Requests\CreateBookingRequest;
 use App\Http\Requests\RescheduleBookingRequest;
@@ -28,9 +24,6 @@ class BookingController extends Controller
     public function __construct(
         private BookingService $bookingService,
         private SlotGenerationService $slotService,
-        private CreateBookingAction $createBookingAction,
-        private ConfirmBookingAction $confirmBookingAction,
-        private CancelBookingAction $cancelBookingAction,
         private RescheduleBookingAction $rescheduleBookingAction
     ) {}
 
@@ -58,7 +51,7 @@ class BookingController extends Controller
         try {
             $resource = Resource::findOrFail($request->resource_id);
 
-            $booking = $this->createBookingAction->execute(
+            $booking = $this->bookingService->createBooking(
                 $resource,
                 $request->start,
                 $request->end,
@@ -83,7 +76,7 @@ class BookingController extends Controller
     public function confirmBooking($id): JsonResponse
     {
         try {
-            $booking = $this->confirmBookingAction->execute($id);
+            $booking = $this->bookingService->confirmBooking($id);
 
             return response()->json([
                 'data' => new BookingResource($booking),
@@ -99,9 +92,10 @@ class BookingController extends Controller
     public function cancelBooking($id, CancelBookingRequest $request): JsonResponse
     {
         try {
-            $booking = $this->cancelBookingAction->execute(
+            $booking = $this->bookingService->cancelBooking(
                 $id,
                 $request->cancelled_by ?? 'client',
+                $request->booker,
                 $request->reason
             );
 

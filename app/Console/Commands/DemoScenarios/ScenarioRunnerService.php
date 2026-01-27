@@ -11,6 +11,7 @@ use App\Actions\CreateOrUpdateCompanyAction;
 use App\Actions\CreateTimetableFromJsonAction;
 use App\Actions\StoreResourceTypeAction;
 use App\Actions\StoreResourceAction;
+use App\Models\User;
 use App\Services\Booking\BookingService;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Requests\GetSlotsRequest;
@@ -21,7 +22,9 @@ use App\Data\ScenarioTimetableData;
 use App\Data\ScenarioResourceConfigData;
 use App\Data\ScenarioOptionsData;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 
 class ScenarioRunnerService
 {
@@ -55,10 +58,10 @@ class ScenarioRunnerService
             $response = $this->bookingController->getAvailableSlots($resourceId, $request);
             $data = $response->getData(true);
 
-            if (isset($data['data'])) {
+            if (isset($data)) {
                 return array_map(function($slot) {
                     return $slot['start'] . '-' . $slot['end'];
-                }, $data['data']);
+                }, $data);
             }
 
             return ["10:00-11:00", "11:00-12:00", "14:00-15:00"];
@@ -91,13 +94,14 @@ class ScenarioRunnerService
     /**
      * Отмена брони
      */
-    public function cancelBooking(int $bookingId, string $cancelledBy, ?string $reason = null): array
+    public function cancelBooking(int $bookingId, string $cancelledBy, Model $booker, ?string $reason = null): array
     {
         try {
             $request = new CancelBookingRequest();
             $request->merge([
                 'cancelled_by' => $cancelledBy,
-                'reason' => $reason
+                'reason' => $reason,
+                'booker' => $booker
             ]);
 
             $response = $this->bookingController->cancelBooking($bookingId, $request);
@@ -142,7 +146,7 @@ class ScenarioRunnerService
     public function getBooking(int $bookingId): array
     {
         try {
-            $booking = Booking::with(['resource', 'bookers'])->findOrFail($bookingId);
+            $booking = Booking::with(['resource', 'users'])->findOrFail($bookingId);
             return [
                 'id' => $booking->id,
                 'resource_id' => $booking->resource_id,
@@ -151,7 +155,7 @@ class ScenarioRunnerService
                 'status' => $booking->status,
                 'reason' => $booking->reason,
                 'resource' => $booking->resource,
-                'bookers' => $booking->bookers
+                'bookers' => $booking->users
             ];
         } catch (\Exception $e) {
             throw new \Exception('Бронь не найдена: ' . $e->getMessage());
@@ -263,5 +267,7 @@ class ScenarioRunnerService
     {
         $companyId = $scenarioId * 100;
         Company::where('id', $companyId)->delete();
+        User::query()->delete();
+        Artisan::call('migrate:fresh');
     }
 }
