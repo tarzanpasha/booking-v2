@@ -77,7 +77,7 @@ class SlotGenerationService
         if (!isset($workingHours['working_hours'])) {
             return [];
         }
-
+        $breaks = $workingHours['breaks'] ?? [];
         $workingHours = $workingHours['working_hours'];
         $slots = [];
         $slotDuration = $config->slot_duration_minutes ?? 60;
@@ -89,7 +89,6 @@ class SlotGenerationService
             return [];
         }
 
-        $breaks = $workingHours['breaks'] ?? [];
         $current = $startTime->copy();
 
         while ($current->lt($endTime)) {
@@ -119,9 +118,12 @@ class SlotGenerationService
                     'end' => $slotEnd->copy()->toDateTimeString(),
                     'duration_minutes' => $slotDuration
                 ];
+                $current->addMinutes($slotDuration);
+            } else {
+                $current = $breakEnd->copy();
             }
 
-            $current->addMinutes($slotDuration);
+
         }
 
         return $slots;
@@ -132,6 +134,8 @@ class SlotGenerationService
         if (!isset($workingHours['working_hours'])) {
             return [];
         }
+
+        $breaks = $workingHours['breaks'] ?? [];
 
         $workingHours = $workingHours['working_hours'];
 
@@ -155,8 +159,6 @@ class SlotGenerationService
         } catch (\Exception $e) {
             return [];
         }
-
-        $breaks = $workingHours['breaks'] ?? [];
 
         $availablePeriods = $this->getAvailablePeriods($startTime, $endTime, $bookings, $breaks);
 

@@ -29,7 +29,7 @@ class Scenario2_MeetingRoom extends BaseScenario
             'start' => '2024-01-16 10:00:00',
             'end' => '2024-01-16 11:30:00',
             'is_admin' => true,
-            'booker' => ['name' => 'Администратор', 'type' => 'admin']
+            'booker' => $adminBooker = $this->getNewUser(['name' => 'Администратор', 'type' => 'admin', 'email' => 'admin@test.ru'])
         ]);
         $this->checkStatus($adminBooking, 'confirmed', "Бронь администратора авто-подтверждена");
 
@@ -39,7 +39,7 @@ class Scenario2_MeetingRoom extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-16 13:00:00',
             'end' => '2024-01-16 14:00:00',
-            'booker' => ['name' => 'Петр Сидоров', 'email' => 'peter@example.com']
+            'booker' => $userBooker = $this->getNewUser(['name' => 'Петр Сидоров', 'email' => 'peter@example.com'])
         ]);
         $this->checkStatus($userBooking, 'pending', "Бронь пользователя ожидает подтверждения");
 

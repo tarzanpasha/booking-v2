@@ -14,6 +14,9 @@ class Scenario6_EmergencyCase extends BaseScenario
         return "Демонстрация приоритета администратора над пользователем";
     }
 
+    /**
+     * @throws \Exception
+     */
     public function run(array $setupData): void
     {
         $resourceId = $setupData['resource_id'];
@@ -29,7 +32,7 @@ class Scenario6_EmergencyCase extends BaseScenario
             'start' => '2024-01-19 15:00:00',
             'end' => '2024-01-19 16:00:00',
             'is_admin' => false, // Явно указываем что это не админ
-            'booker' => ['name' => 'Обычный пользователь', 'type' => 'client']
+            'booker' => $userBooker = $this->getNewUser(['name' => 'Обычный пользователь', 'type' => 'client', 'email' => 'test2.ru'])
         ]);
 
         // Для сценария 2 требуется подтверждение, поэтому статус будет pending
@@ -38,7 +41,7 @@ class Scenario6_EmergencyCase extends BaseScenario
 
         // ШАГ 2: Администратор отменяет пользовательскую бронь
         $this->info("\n👨‍💼 ШАГ 2: Администратор отменяет пользовательскую бронь...");
-        $cancelledBooking = $this->runner->cancelBooking($userBooking['id'], 'admin', 'Экстренная необходимость');
+        $cancelledBooking = $this->runner->cancelBooking($userBooking['id'], 'admin', $userBooker, 'Экстренная необходимость');
         $this->checkStatus($cancelledBooking, 'cancelled_by_admin', "Бронь пользователя отменена администратором");
 
         // ШАГ 3: Администратор создает экстренную бронь на то же время
@@ -48,7 +51,7 @@ class Scenario6_EmergencyCase extends BaseScenario
             'start' => '2024-01-19 15:00:00',
             'end' => '2024-01-19 16:00:00',
             'is_admin' => true, // Ключевой параметр для администратора
-            'booker' => ['name' => 'Администратор', 'type' => 'admin']
+            'booker' => $this->getNewUser(['name' => 'Администратор', 'type' => 'admin', 'email' => 'test3.ru'])
         ]);
         $this->checkStatus($emergencyBooking, 'confirmed', "Экстренная бронь администратора создана");
 

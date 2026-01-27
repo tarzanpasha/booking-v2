@@ -26,35 +26,22 @@ return new class extends Migration
             $table->index(['company_id', 'start']);
         });
 
-        // Таблица бронирующих (клиентов/администраторов)
-        Schema::create('bookers', function (Blueprint $table) {
-            $table->id();
-            $table->string('external_id')->nullable();
-            $table->string('type');
-            $table->string('name')->nullable();
-            $table->string('email')->nullable();
-            $table->string('phone')->nullable();
-            $table->json('metadata')->nullable();
-            $table->timestamps();
-
-            $table->index(['external_id', 'type']);
-        });
-
-        // Связующая таблица между бронированиями и бронирующими
-        Schema::create('booking_booker', function (Blueprint $table) {
+        // Таблица для morph-связи (заменяет старые bookers и booking_booker)
+        Schema::create('bookables', function (Blueprint $table) {
             $table->id();
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('booker_id')->constrained()->cascadeOnDelete();
+            $table->string('status')->default('pending');
+            $table->string('reason', 255)->nullable();
+            $table->morphs('bookable'); // bookable_id, bookable_type
             $table->timestamps();
 
-            $table->unique(['booking_id', 'booker_id']);
+            $table->unique(['booking_id', 'bookable_id', 'bookable_type']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('booking_booker');
-        Schema::dropIfExists('bookers');
+        Schema::dropIfExists('bookables');
         Schema::dropIfExists('bookings');
     }
 };

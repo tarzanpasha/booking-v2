@@ -13,6 +13,9 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
         return "Демонстрация строгих ограничений для ценных ресурсов";
     }
 
+    /**
+     * @throws \Exception
+     */
     public function run(array $setupData): void
     {
         $resourceId = $setupData['resource_id'];
@@ -28,7 +31,7 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
                 'resource_id' => $resourceId,
                 'start' => now()->addMinutes(30)->format('Y-m-d H:i:s'),
                 'end' => now()->addMinutes(150)->format('Y-m-d H:i:s'),
-                'booker' => ['name' => 'Торопливый клиент']
+                'booker' => $this->getNewUser(['name' => 'Торопливый клиент', 'email' => 'tester@test.ru'])
             ]);
             $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
             $this->runner->debug("Бронь создалась без ошибки, хотя min_advance_time = 2880 минут");
@@ -42,13 +45,13 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-18 10:00:00',
             'end' => '2024-01-18 12:00:00',
-            'booker' => ['name' => 'Серьезный клиент', 'email' => 'serious@example.com']
+            'booker' => $canselBooker = $this->getNewUser(['name' => 'Серьезный клиент', 'email' => 'serious@example.com' ])
         ]);
         $this->checkStatus($pendingBooking, 'pending', "Бронь ожидает подтверждения");
 
         // ШАГ 3: Отклонение брони администратором
         $this->info("\n❌ ШАГ 3: Отклонение брони администратором...");
-        $rejectedBooking = $this->runner->cancelBooking($pendingBooking['id'], 'admin', 'Оборудование на обслуживании');
+        $rejectedBooking = $this->runner->cancelBooking($pendingBooking['id'], 'admin', $canselBooker, 'Оборудование на обслуживании');
         $this->checkStatus($rejectedBooking, 'cancelled_by_admin', "Бронь отклонена администратором");
 
         // ШАГ 4: Бронь администратором с обходом ограничений
@@ -62,14 +65,14 @@ class Scenario4_ExpensiveEquipment extends BaseScenario
             'start' => $adminStart,
             'end' => $adminEnd,
             'is_admin' => true,
-            'booker' => ['name' => 'Администратор', 'type' => 'admin']
+            'booker' => $canselBooker2 = $this->getNewUser(['name' => 'Администратор', 'type' => 'admin', 'email' => 'testerrr@test.ru'])
         ]);
         $this->checkStatus($adminBooking, 'confirmed', "Бронь администратора подтверждена");
 
         // ШАГ 5: Попытка отмены в последний момент (должна быть ошибка)
         $this->info("\n❌ ШАГ 5: Попытка отмены в последний момент...");
         try {
-            $result = $this->runner->cancelBooking($adminBooking['id'], 'client', 'Срочные обстоятельства');
+            $result = $this->runner->cancelBooking($adminBooking['id'], 'client', $canselBooker2, 'Срочные обстоятельства');
 
             // Проверяем результат отмены
             if (isset($result['status']) && $result['status'] === 'cancelled_by_client') {

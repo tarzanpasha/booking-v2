@@ -14,6 +14,9 @@ class Scenario1_HairSalon extends BaseScenario
         return "Демонстрация фиксированных слотов с автоматическим подтверждением";
     }
 
+    /**
+     * @throws \Exception
+     */
     public function run(array $setupData): void
     {
         $resourceId = $setupData['resource_id'];
@@ -34,7 +37,7 @@ class Scenario1_HairSalon extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-15 12:00:00',
             'end' => '2024-01-15 13:00:00',
-            'booker' => ['name' => 'Анна Иванова', 'email' => 'anna@example.com']
+            'booker' => $booker1 = $this->getNewUser(['name' => 'Анна Иванова', 'email' => 'anna@example.com'])
         ]);
         $this->checkStatus($booking1, 'confirmed', "Бронь авто-подтверждена");
 
@@ -45,7 +48,7 @@ class Scenario1_HairSalon extends BaseScenario
                 'resource_id' => $resourceId,
                 'start' => '2024-01-15 12:45:00',
                 'end' => '2024-01-15 13:45:00',
-                'booker' => ['name' => 'Конфликтный клиент']
+                'booker' => $this->getNewUser(['name' => 'Конфликтный клиент', 'email' => 'anna2@example.com'])
             ]);
             $this->error("   🚨 НЕОЖИДАННО: Должно было быть ошибкой!");
         } catch (\Exception $e) {
@@ -58,13 +61,13 @@ class Scenario1_HairSalon extends BaseScenario
             'resource_id' => $resourceId,
             'start' => '2024-01-15 14:15:00',
             'end' => '2024-01-15 15:15:00',
-            'booker' => ['name' => 'Петр Сидоров']
+            'booker' => $booker2 = $this->getNewUser(['name' => 'Петр Сидоров', 'email' => 'anna@example3.com'])
         ]);
         $this->checkStatus($booking2, 'confirmed', "Бронь после перерыва создана");
 
         // ШАГ 5: Отмена брони клиентом
         $this->info("\n🔄 ШАГ 5: Отмена брони клиентом...");
-        $canceledBooking = $this->runner->cancelBooking($booking1['id'], 'client', 'Планы изменились');
+        $canceledBooking = $this->runner->cancelBooking($booking1['id'], 'client', $booker1, 'Планы изменились');
         $this->checkStatus($canceledBooking, 'cancelled_by_client', "Бронь отменена клиентом");
 
         $this->info("\n🎉 СЦЕНАРИЙ 1 ЗАВЕРШЕН: Все функции фиксированных слотов работают корректно!");

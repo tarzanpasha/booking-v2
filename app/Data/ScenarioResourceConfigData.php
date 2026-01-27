@@ -54,7 +54,7 @@ class ScenarioResourceConfigData
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 60,
                 'slot_strategy' => 'dinamic',
-                'min_advance_time' => 0,
+                'min_advance_time' => 60,
                 'cancellation_time' => 0,
                 'reschedule_time' => 0
             ],

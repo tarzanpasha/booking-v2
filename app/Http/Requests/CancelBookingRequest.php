@@ -15,7 +15,8 @@ class CancelBookingRequest extends FormRequest
     {
         return [
             'cancelled_by' => 'sometimes|in:client,admin',
-            'reason' => 'sometimes|string|max:255'
+            'reason' => 'sometimes|string|max:255',
+            'booker' => 'sometimes',
         ];
     }
 }

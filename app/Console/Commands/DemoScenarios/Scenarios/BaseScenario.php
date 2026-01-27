@@ -3,9 +3,11 @@
 
 namespace App\Console\Commands\DemoScenarios\Scenarios;
 
+use App\Models\User;
 use App\Services\Booking\BookingService;
 use App\Console\Commands\DemoScenarios\ScenarioRunnerService;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseScenario
 {
@@ -60,5 +62,14 @@ abstract class BaseScenario
     protected function warn(string $message): void
     {
         $this->command->warn($message);
+    }
+
+    protected function getNewUser(array $userData): Model
+    {
+        $userData = array_merge($userData, ['password' => bcrypt('password')]);
+        $user = new User();
+        $user->fill($userData);
+        $user->save();
+        return $user;
     }
 }

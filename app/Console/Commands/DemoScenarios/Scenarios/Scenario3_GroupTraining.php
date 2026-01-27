@@ -3,6 +3,10 @@
 
 namespace App\Console\Commands\DemoScenarios\Scenarios;
 
+use App\Actions\AttachBookerAction;
+use App\Models\Booking;
+use App\Services\Booking\BookingService;
+
 class Scenario3_GroupTraining extends BaseScenario
 {
     protected int $scenarioId = 3;
@@ -28,26 +32,25 @@ class Scenario3_GroupTraining extends BaseScenario
         $this->info("   📊 Доступные слоты: " . count($slots));
 
         // ШАГ 2: Создать групповую бронь с организатором
-        $this->info("\n👥 ШАГ 2: Создание групповой брони с организатором...");
+        $this->info("\n👥 ШАГ 2: Создание групповой брони");
         $groupBooking = $this->runner->createBooking([
             'resource_id' => $resourceId,
             'start' => '2024-01-17 10:00:00',
             'end' => '2024-01-17 11:30:00',
-            'booker' => [
+            'is_admin' => true,
+            'booker' => $organizer = $this->getNewUser([
                 'name' => 'Организатор тренировки',
                 'email' => 'organizer@example.com',
-                'type' => 'client',
-                'metadata' => ['is_organizer' => true]
-            ]
+            ])
         ]);
         $this->checkStatus($groupBooking, 'confirmed', "Групповая бронь создана");
 
         // ШАГ 3: Добавить дополнительных участников к брони
         $this->info("\n👥 ШАГ 3: Добавление участников в групповую бронь...");
         $this->addParticipantsToBooking($groupBooking['id'], [
-            ['name' => 'Участник 1', 'email' => 'user1@example.com'],
-            ['name' => 'Участник 2', 'email' => 'user2@example.com'],
-            ['name' => 'Участник 3', 'email' => 'user3@example.com'],
+            $this->getNewUser(['name' => 'Участник 1', 'email' => 'user1@example.com']),
+            $this->getNewUser(['name' => 'Участник 2', 'email' => 'user2@example.com']),
+            $this->getNewUser(['name' => 'Участник 3', 'email' => 'user3@example.com']),
         ]);
 
         $this->info("\n🎉 СЦЕНАРИЙ 3 ЗАВЕРШЕН: Групповые брони и лимиты участников работают корректно!");
@@ -65,9 +68,11 @@ class Scenario3_GroupTraining extends BaseScenario
     private function addParticipantsToBooking(int $bookingId, array $participants): void
     {
         $this->line("   👥 Добавление участников в бронь {$bookingId}:");
-
+        $attachAction = new BookingService();
+        $booking = Booking::find($bookingId);
         foreach ($participants as $participant) {
-            $this->info("      👤 Добавлен участник: {$participant['name']}");
+            $this->info("      👤 Добавлен участник: {$participant->name}");
+            $attachAction->attachBooker($booking, $participant);
         }
         $this->info("   ✅ Участники добавлены в бронь {$bookingId}");
     }

@@ -5,9 +5,9 @@ namespace App\Services\Booking;
 
 use App\Models\Booking;
 use App\Models\Resource;
-use App\Models\Booker;
 use App\Enums\BookingStatus;
 use App\ValueObjects\ResourceConfig;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Services\Logging\BookingLoggerService;
@@ -72,11 +72,14 @@ class BookingService
         return !$overlapExists;
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function createBooking(
         Resource $resource,
         string $start,
         string $end,
-        array $bookerData = [],
+        Model $bookerData,
         bool $isAdmin = false
     ): Booking {
         return DB::transaction(function () use ($resource, $start, $end, $bookerData, $isAdmin) {
@@ -99,7 +102,7 @@ class BookingService
 
                 // Администраторы могут создавать брони даже в занятое время
                 // (перезаписывая существующие брони)
-                $this->handleAdminBookingOverlap($resource, $startTime, $endTime);
+                //$this->handleAdminBookingOverlap($resource, $startTime, $endTime);
             }
 
             $status = $config->requiresConfirmation() && !$isAdmin
@@ -147,9 +150,6 @@ class BookingService
                 });
             })
             ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
-            ->whereDoesntHave('bookers', function ($q) {
-                $q->where('type', 'admin');
-            })
             ->get();
 
         foreach ($overlappingBookings as $overlappingBooking) {
@@ -185,7 +185,7 @@ class BookingService
         return $booking;
     }
 
-    public function cancelBooking(int $bookingId, string $cancelledBy = 'client', ?string $reason = null): Booking
+    public function cancelBooking(int $bookingId, string $cancelledBy = 'client', Model $booker, ?string $reason = null): Booking
     {
         $booking = Booking::findOrFail($bookingId);
         $config = $booking->resource->getResourceConfig();
@@ -198,16 +198,34 @@ class BookingService
             ? BookingStatus::CANCELLED_BY_ADMIN
             : BookingStatus::CANCELLED_BY_CLIENT;
 
-        $booking->update([
-            'status' => $status->value,
-            'reason' => $reason
-        ]);
 
-        BookingLoggerService::warning("❌ Бронь отменена", [
-            'booking_id' => $booking->id,
-            'cancelled_by' => $cancelledBy,
-            'reason' => $reason
-        ]);
+        if (!$booking->is_group_booking) {
+            $booking->update([
+                'status' => $status->value,
+                'reason' => $reason
+            ]);
+        }
+
+        DB::table('bookables')
+            ->where('booking_id', '=', $booking->id)
+            ->where('bookable_id', '=', $booker->id)
+            ->where('bookable_type', '=', $booker::class)
+            ->update(['status' => $status->value, 'reason' => $reason]);
+
+        if (!$booking->is_group_booking) {
+            BookingLoggerService::warning("❌ Бронь отменена  для {$booker->name} ", [
+                'booking_id' => $booking->id,
+                'cancelled_by' => $cancelledBy,
+                'reason' => $reason
+            ]);
+        } else {
+            BookingLoggerService::warning("❌ Бронь отменена", [
+                'booking_id' => $booking->id,
+                'cancelled_by' => $cancelledBy,
+                'reason' => $reason
+            ]);
+        }
+
 
         event(new \App\Events\BookingCancelled($booking));
 
@@ -319,22 +337,12 @@ class BookingService
         return true;
     }
 
-    private function attachBooker(Booking $booking, array $bookerData): void
+    public function attachBooker(Booking $booking, Model $booker): void
     {
-        $booker = Booker::firstOrCreate(
-            [
-                'external_id' => $bookerData['external_id'] ?? null,
-                'type' => $bookerData['type'] ?? 'client'
-            ],
-            [
-                'name' => $bookerData['name'] ?? null,
-                'email' => $bookerData['email'] ?? null,
-                'phone' => $bookerData['phone'] ?? null,
-                'metadata' => $bookerData['metadata'] ?? null,
-            ]
-        );
-
-        $booking->bookers()->syncWithoutDetaching([$booker->id]);
+        $booker->bookings()->syncWithoutDetaching([$booking->id => [
+            'status' => $booking->status,
+            'reason' => $booking->reason,
+        ]]);
     }
 
     /**
