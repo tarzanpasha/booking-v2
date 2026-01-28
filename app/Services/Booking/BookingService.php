@@ -72,6 +72,15 @@ class BookingService
         return !$overlapExists;
     }
 
+    private function getBookigForThatPeriod(Resource $resource, Carbon $start, Carbon $end): ?Booking
+    {
+        $booking = Booking::query()
+            ->where('resource_id', $resource->id)
+            ->where('start', '= ', $start)
+            ->where('end', '= ', $end)
+            ->first() ?? null;
+    }
+
     /**
      * @throws \Throwable
      */
@@ -87,6 +96,16 @@ class BookingService
             $startTime = Carbon::parse($start);
             $endTime = Carbon::parse($end);
 
+            $status = $config->requiresConfirmation() && !$isAdmin
+                ? BookingStatus::PENDING
+                : BookingStatus::CONFIRMED;
+
+            if ($booking = $this->getBookigForThatPeriod($resource, $startTime, $endTime)) {
+                if ($booking->status == BookingStatus::CONFIRMED->value || $booking->status == BookingStatus::PENDING->value) {
+                    $this->attachBooker($booking, $bookerData, $isAdmin);
+                }
+            }
+
             if (!$isAdmin) {
                 $this->validateBookingTime($resource, $startTime, $endTime, $config);
 
@@ -100,14 +119,8 @@ class BookingService
                     throw new \Exception('Время окончания должно быть после времени начала');
                 }
 
-                // Администраторы могут создавать брони даже в занятое время
-                // (перезаписывая существующие брони)
-                //$this->handleAdminBookingOverlap($resource, $startTime, $endTime);
             }
 
-            $status = $config->requiresConfirmation() && !$isAdmin
-                ? BookingStatus::PENDING
-                : BookingStatus::CONFIRMED;
 
             $booking = Booking::create([
                 'company_id' => $resource->company_id,
@@ -136,39 +149,25 @@ class BookingService
         });
     }
 
-    /**
-     * Обрабатывает пересечения для администраторских броней
-     * Автоматически отменяет пересекающиеся брони пользователей
-     */
-    private function handleAdminBookingOverlap(Resource $resource, Carbon $start, Carbon $end): void
+
+    private function changeBookableStatus(Booking $booking, Model $booker, string $status, ?string $reason = ""): void
     {
-        $overlappingBookings = Booking::where('resource_id', $resource->id)
-            ->where(function ($query) use ($start, $end) {
-                $query->where(function ($q) use ($start, $end) {
-                    $q->where('start', '<', $end)
-                        ->where('end', '>', $start);
-                });
-            })
-            ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
-            ->get();
-
-        foreach ($overlappingBookings as $overlappingBooking) {
-            $overlappingBooking->update([
-                'status' => BookingStatus::CANCELLED_BY_ADMIN->value,
-                'reason' => 'Автоматически отменена из-за администраторской брони'
-            ]);
-
-            BookingLoggerService::warning("❌ Бронь автоматически отменена из-за администраторской", [
-                'booking_id' => $overlappingBooking->id,
-                'admin_booking_start' => $start,
-                'admin_booking_end' => $end
-            ]);
-
-            event(new \App\Events\BookingCancelled($overlappingBooking));
-        }
+        $booking->bookables()
+            ->where('booking_id', '=', $booking->id)
+            ->where('bookable_id', '=', $booker->id)
+            ->where('bookable_type', '=', $booker::class)
+            ->update(['status' => $status, 'reason' => $reason]);
+        /**
+         * Старая версия. Не проверено тестами еще.
+         */
+        DB::table('bookables')
+            ->where('booking_id', '=', $booking->id)
+            ->where('bookable_id', '=', $booker->id)
+            ->where('bookable_type', '=', $booker::class)
+            ->update(['status' => $status, 'reason' => $reason]);
     }
 
-    public function confirmBooking(int $bookingId): Booking
+    public function confirmBooking(int $bookingId, Model $booker): Booking
     {
         $booking = Booking::findOrFail($bookingId);
 
@@ -178,6 +177,8 @@ class BookingService
 
         $booking->status = BookingStatus::CONFIRMED->value;
         $booking->save();
+
+        $this->changeBookableStatus($booking, $booker, BookingStatus::CONFIRMED->value);
 
         BookingLoggerService::info("✅ Бронь подтверждена", ['booking_id' => $booking->id]);
         event(new \App\Events\BookingConfirmed($booking));
@@ -206,11 +207,14 @@ class BookingService
             ]);
         }
 
-        DB::table('bookables')
-            ->where('booking_id', '=', $booking->id)
-            ->where('bookable_id', '=', $booker->id)
-            ->where('bookable_type', '=', $booker::class)
-            ->update(['status' => $status->value, 'reason' => $reason]);
+        $this->changeBookableStatus($booking, $booker, $status->value, $reason);
+
+        if ($booking->is_group_booking && !$booking->bookables()->where('status', '=', BookingStatus::CONFIRMED->value)->exists()) {
+            $booking->update([
+                'status' => $status->value,
+                'reason' => $reason
+            ]);
+        }
 
         if (!$booking->is_group_booking) {
             BookingLoggerService::warning("❌ Бронь отменена  для {$booker->name} ", [
@@ -232,6 +236,9 @@ class BookingService
         return $booking;
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function rescheduleBooking(
         int $bookingId,
         string $newStart,
@@ -245,12 +252,12 @@ class BookingService
                 throw new \Exception('Невозможно перенести групповую бронь не админу');
             }
 
-            $resource = $booking->resource;
-            $config = $resource->getResourceConfig();
-
             if (BookingStatus::from($booking->status)->isCancelled()) {
                 throw new \Exception('Невозможно перенести отмененную бронь');
             }
+
+            $resource = $booking->resource;
+            $config = $resource->getResourceConfig();
 
             if ($requestedBy === 'client' && !$config->canReschedule($booking->start)) {
                 throw new \Exception('Время для переноса брони истекло');
@@ -342,21 +349,33 @@ class BookingService
         return true;
     }
 
-    public function attachBooker(Booking $booking, Model $booker): void
+    public function attachBooker(Booking $booking, Model $booker, ?bool $isAdmin = false): void
     {
         $config = $booking->resource->getResourceConfig();
         $countBookers = $booking->bookables()
-            ->where('status', BookingStatus::CONFIRMED)
+            ->where('status', BookingStatus::CONFIRMED->value)
             ->get()
             ->count();
         if ($countBookers < $config->max_participants) {
-            $booker->bookings()->syncWithoutDetaching([$booking->id => [
-                'status' => $booking->status,
-                'reason' => $booking->reason,
-            ]]);
+            if ($isAdmin) {
+                $booker->bookings()->syncWithoutDetaching([$booking->id => [
+                    'status' => BookingStatus::CONFIRMED->value,
+                    'reason' => $booking->reason,
+                ]]);
+                $booking->update([
+                    'status' => BookingStatus::CONFIRMED->value,
+                ]);
+            } else {
+                $booker->bookings()->syncWithoutDetaching([$booking->id => [
+                    'status' => $booking->status,
+                    'reason' => $booking->reason,
+                ]]);
+            }
+
+
         } else {
             $booker->bookings()->syncWithoutDetaching([$booking->id => [
-                'status' => BookingStatus::REJECTED,
+                'status' => BookingStatus::REJECTED->value,
                 'reason' => "Бронь переполнена",
             ]]);
         }
@@ -436,10 +455,10 @@ class BookingService
 
         if ($timetable->type === 'static') {
             $dayOfWeek = strtolower($date->englishDayOfWeek);
-            return isset($timetable->schedule['days'][$dayOfWeek]) ? $timetable->schedule['days'][$dayOfWeek] : null;
+            return $timetable->schedule['days'][$dayOfWeek] ?? null;
         } else {
             $dateKey = $date->format('m-d');
-            return isset($timetable->schedule['dates'][$dateKey]) ? $timetable->schedule['dates'][$dateKey] : null;
+            return $timetable->schedule['dates'][$dateKey] ?? null;
         }
     }
 }

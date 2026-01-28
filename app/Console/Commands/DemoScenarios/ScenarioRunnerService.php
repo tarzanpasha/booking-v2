@@ -85,9 +85,9 @@ class ScenarioRunnerService
     /**
      * Подтверждение брони
      */
-    public function confirmBooking(int $bookingId): array
+    public function confirmBooking(int $bookingId, Model $booker): array
     {
-        $response = $this->bookingController->confirmBooking($bookingId);
+        $response = $this->bookingController->confirmBooking($bookingId, $booker);
         return $this->handleApiResponse($response, 'Подтверждение брони');
     }
 
