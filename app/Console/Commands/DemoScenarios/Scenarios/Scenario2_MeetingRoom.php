@@ -50,7 +50,7 @@ class Scenario2_MeetingRoom extends BaseScenario
 
         // ШАГ 4: Подтверждение брони администратором
         $this->info("\n✅ ШАГ 4: Подтверждение брони администратором...");
-        $confirmedBooking = $this->runner->confirmBooking($userBooking['id']);
+        $confirmedBooking = $this->runner->confirmBooking($userBooking['id'], $userBooker);
         $this->checkStatus($confirmedBooking, 'confirmed', "Бронь подтверждена администратором");
 
         $this->info("\n🎉 СЦЕНАРИЙ 2 ЗАВЕРШЕН: Динамические слоты и ручное подтверждение работают корректно!");

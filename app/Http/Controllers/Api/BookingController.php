@@ -16,6 +16,7 @@ use App\Http\Requests\GetSlotsRequest;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\ResourceResource;
 use App\Http\Resources\SlotResource;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 
@@ -73,10 +74,10 @@ class BookingController extends Controller
         }
     }
 
-    public function confirmBooking($id): JsonResponse
+    public function confirmBooking(int $id, Model $booker): JsonResponse
     {
         try {
-            $booking = $this->bookingService->confirmBooking($id);
+            $booking = $this->bookingService->confirmBooking($id, $booker);
 
             return response()->json([
                 'data' => new BookingResource($booking),
