@@ -57,6 +57,8 @@ class SlotGenerationService
 
         $workingHours = $this->getWorkingHoursForDate($timetable, $date);
 
+        dump($workingHours);
+
         // Если рабочие часы не найдены (праздник или выходной) - возвращаем пустой массив
         if (!$workingHours) {
             return [];
@@ -262,6 +264,7 @@ class SlotGenerationService
             }
 
             $dayOfWeek = strtolower($date->englishDayOfWeek);
+
 
             // Проверяем, есть ли рабочие часы для этого дня недели
             if (!isset($timetable->schedule['days'][$dayOfWeek])) {

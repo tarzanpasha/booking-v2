@@ -5,7 +5,7 @@ namespace App\Enums;
 enum SlotStrategy: string
 {
     case FIXED = 'fixed';
-    case DINAMIC = 'dinamic';
+    case DYNAMIC = 'dynamic';
 
     public static function values(): array
     {
@@ -20,8 +20,8 @@ enum SlotStrategy: string
     public function label(): string
     {
         return match($this) {
-            self::FIXED => 'Fixed',
-            self::DINAMIC => 'dinamic',
+            self::FIXED => 'fixed',
+            self::DYNAMIC => 'dynamic',
         };
     }
 }

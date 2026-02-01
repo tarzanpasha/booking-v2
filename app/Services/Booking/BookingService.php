@@ -16,7 +16,9 @@ class BookingService
 {
     public function __construct(
         private SlotGenerationService $slotService
-    ) {}
+    )
+    {
+    }
 
     /**
      * Проверяет доступность диапазона с учетом перерывов и других бронирований
@@ -50,6 +52,23 @@ class BookingService
 
     public function isRangeAvailable(Resource $resource, Carbon $from, Carbon $to): bool
     {
+        // todo: эквивалентно?
+        if ($from->greaterThanOrEqualTo($to)) {
+            return false;
+        }
+
+        $overlapExists = Booking::query()
+            ->where('resource_id', $resource->id)
+            ->whereIn('status', [
+                BookingStatus::PENDING->value,
+                BookingStatus::CONFIRMED->value,
+            ])
+            ->where('start', '<', $to)
+            ->where('end', '>', $from)
+            ->exists();
+
+        return !$overlapExists;
+
         $overlapExists = Booking::where('resource_id', $resource->id)
             ->where(function ($query) use ($from, $to) {
                 $query->where(function ($q) use ($from, $to) {
@@ -72,12 +91,12 @@ class BookingService
         return !$overlapExists;
     }
 
-    private function getBookigForThatPeriod(Resource $resource, Carbon $start, Carbon $end): ?Booking
+    private function getBookingForThatPeriod(Resource $resource, Carbon $start, Carbon $end): ?Booking
     {
-        $booking = Booking::query()
+        return Booking::query()
             ->where('resource_id', $resource->id)
-            ->where('start', '= ', $start)
-            ->where('end', '= ', $end)
+            ->where('start', '=', $start)
+            ->where('end', '=', $end)
             ->first() ?? null;
     }
 
@@ -85,22 +104,27 @@ class BookingService
      * @throws \Throwable
      */
     public function createBooking(
-        Resource $resource,
-        string $start,
-        string $end,
-        Model $bookerData,
-        bool $isAdmin = false
-    ): Booking {
+        Resource      $resource,
+        Carbon|string $start,
+        Carbon|string $end,
+        Model         $bookerData,
+        bool          $isAdmin = false
+    ): Booking
+    {
         return DB::transaction(function () use ($resource, $start, $end, $bookerData, $isAdmin) {
             $config = $resource->getResourceConfig();
-            $startTime = Carbon::parse($start);
-            $endTime = Carbon::parse($end);
+            $startTime = $start instanceof Carbon
+                ? $start
+                : Carbon::parse($start);
+            $endTime = $end instanceof Carbon
+                ? $end
+                : Carbon::parse($end);
 
             $status = $config->requiresConfirmation() && !$isAdmin
                 ? BookingStatus::PENDING
                 : BookingStatus::CONFIRMED;
 
-            if ($booking = $this->getBookigForThatPeriod($resource, $startTime, $endTime)) {
+            if ($booking = $this->getBookingForThatPeriod($resource, $startTime, $endTime)) {
                 if ($booking->status == BookingStatus::CONFIRMED->value || $booking->status == BookingStatus::PENDING->value) {
                     $this->attachBooker($booking, $bookerData, $isAdmin);
                 }
@@ -125,7 +149,7 @@ class BookingService
             $booking = Booking::create([
                 'company_id' => $resource->company_id,
                 'resource_id' => $resource->id,
-                'timetable_id' => $resource->getEffectiveTimetable()?->id,
+                'timetable_id' => $resource->getEffectiveTimetable()?->id, // todo зачем?
                 'is_group_booking' => $config->isGroupResource(),
                 'start' => $startTime,
                 'end' => $endTime,
@@ -240,11 +264,12 @@ class BookingService
      * @throws \Throwable
      */
     public function rescheduleBooking(
-        int $bookingId,
+        int    $bookingId,
         string $newStart,
         string $newEnd,
         string $requestedBy = 'client'
-    ): Booking {
+    ): Booking
+    {
         return DB::transaction(function () use ($bookingId, $newStart, $newEnd, $requestedBy) {
             $booking = Booking::findOrFail($bookingId);
 
@@ -267,7 +292,7 @@ class BookingService
             $newEndTime = Carbon::parse($newEnd);
 
             // Используем новый метод для комплексной проверки нового времени
-            if ($requestedBy!=='admin' && !$this->isTimeRangeAvailable($resource, $newStartTime, $newEndTime)) {
+            if ($requestedBy !== 'admin' && !$this->isTimeRangeAvailable($resource, $newStartTime, $newEndTime)) {
                 throw new \Exception('Новый временной диапазон недоступен (занят или пересекается с перерывом)');
             }
 
@@ -298,10 +323,11 @@ class BookingService
 
     public function getNextAvailableSlots(
         Resource $resource,
-        Carbon $from = null,
-        int $count = 5,
-        bool $onlyToday = true
-    ): array {
+        Carbon   $from = null,
+        int      $count = 5,
+        bool     $onlyToday = true
+    ): array
+    {
         return $this->slotService->getNextAvailableSlots($resource, $from, $count, $onlyToday);
     }
 
@@ -335,6 +361,7 @@ class BookingService
 
     private function isValidSlotTime(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): bool
     {
+        // todo: Динамическая стратегия генерации слотов все ещё не позволяет бронировать слоты "от балды", она просто нарезает их по другму принципу
         if ($config->isFixedStrategy()) {
             $slots = $this->slotService->generateSlotsForDate($resource, $start);
 
@@ -345,7 +372,6 @@ class BookingService
             }
             return false;
         }
-
         return true;
     }
 
@@ -388,6 +414,7 @@ class BookingService
     public function isTimeAvailableConsideringBreaks(Resource $resource, Carbon $start, Carbon $end): bool
     {
         $timetable = $resource->getEffectiveTimetable();
+
 
         if (!$timetable) {
             return true;

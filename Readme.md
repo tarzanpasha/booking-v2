@@ -45,6 +45,7 @@ Carbon::parse($request->start),
 Carbon::parse($request->end)
 );
 
+// todo: не сделано??
 7)перенос брони (пока на этапе тестироания и доработки:
 
 $booking = $this->rescheduleBookingAction->execute(

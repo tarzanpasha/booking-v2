@@ -19,7 +19,7 @@ class ScenarioResourceConfigData
             2 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 30,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 1440,
                 'cancellation_time' => 720,
                 'reschedule_time' => 1440
@@ -36,7 +36,7 @@ class ScenarioResourceConfigData
             4 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 120,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 2880, // 48 часов
                 'cancellation_time' => 0,    // Отмена невозможна для клиента
                 'reschedule_time' => 0,      // Перенос невозможен для клиента
@@ -53,7 +53,7 @@ class ScenarioResourceConfigData
             6 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 60,
                 'cancellation_time' => 0,
                 'reschedule_time' => 0
@@ -70,7 +70,7 @@ class ScenarioResourceConfigData
             8 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'max_participants' => 20,
                 'min_advance_time' => 1440,
                 'cancellation_time' => 720,

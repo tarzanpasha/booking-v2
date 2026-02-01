@@ -33,13 +33,13 @@ class ArtisanCommandService
     public function generateDynamicTimetable(int $companyId, int $days = 30): array
     {
         // Выполняем команду
-        Artisan::call('timetable:generate-dinamic', [
+        Artisan::call('timetable:generate-dynamic', [
             'company_id' => $companyId,
             'days' => $days
         ]);
 
         // Получаем сгенерированные данные из файла
-        $filePath = storage_path('app/exports/dinamic_timetable_example.json');
+        $filePath = storage_path('app/exports/dynamic_timetable_example.json');
         if (!file_exists($filePath)) {
             throw new \Exception('Dynamic timetable example file not found');
         }

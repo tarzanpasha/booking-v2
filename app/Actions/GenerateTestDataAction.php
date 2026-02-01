@@ -28,7 +28,7 @@ class GenerateTestDataAction
 
         // Анализируем сгенерированные расписания для создания соответствующих ресурсов
         $staticTimetableInfo = $this->artisanCommandService->getTimetableInfo($staticTimetable->schedule, 'static');
-        $dynamicTimetableInfo = $this->artisanCommandService->getTimetableInfo($dynamicTimetable->schedule, 'dinamic');
+        $dynamicTimetableInfo = $this->artisanCommandService->getTimetableInfo($dynamicTimetable->schedule, 'dynamic');
 
         // Создаем типы ресурсов на основе анализа расписаний
         $resourceTypes = $this->createResourceTypes($companyId, $staticTimetable, $dynamicTimetable, $staticTimetableInfo, $dynamicTimetableInfo);
@@ -68,7 +68,7 @@ class GenerateTestDataAction
         // Используем Artisan команду для генерации реального динамического расписания
         $dynamicData = $this->artisanCommandService->generateDynamicTimetable($companyId, 14); // 14 дней для тестов
 
-        return $this->createTimetableFromJsonAction->execute($companyId, $dynamicData, 'dinamic');
+        return $this->createTimetableFromJsonAction->execute($companyId, $dynamicData, 'dynamic');
     }
 
     private function createResourceTypes(
@@ -106,7 +106,7 @@ class GenerateTestDataAction
             'description' => "Комната для встреч ({$staticInfo['total_breaks']} перерывов в расписании)",
             'resource_config' => [
                 'slot_duration_minutes' => 30,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'require_confirmation' => true,
                 'max_participants' => 10,
                 'min_advance_time' => 30,
@@ -138,7 +138,7 @@ class GenerateTestDataAction
             'description' => 'Оборудование для специальных мероприятий',
             'resource_config' => [
                 'slot_duration_minutes' => 120,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'require_confirmation' => true,
                 'max_participants' => 5,
                 'min_advance_time' => 480,

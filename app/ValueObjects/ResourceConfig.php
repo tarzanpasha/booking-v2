@@ -78,7 +78,7 @@ class ResourceConfig
 
     public function isDynamicStrategy(): bool
     {
-        return $this->slot_strategy === SlotStrategy::DINAMIC;
+        return $this->slot_strategy === SlotStrategy::DYNAMIC;
     }
 
     public function canCancel(\DateTime $bookingStart): bool

@@ -937,10 +937,10 @@ class UpdateTimetableRequest extends FormRequest
             'schedule.days.*.breaks.*.end' => 'required_with:schedule.days.*.breaks|date_format:H:i',
             'schedule.holidays' => 'sometimes|array',
             'schedule.holidays.*' => 'string|regex:/^\d{2}-\d{2}$/',
-            'schedule.dates' => 'required_if:type,dinamic|array',
-            'schedule.dates.*.working_hours' => 'required_if:type,dinamic|array',
-            'schedule.dates.*.working_hours.start' => 'required_if:type,dinamic|date_format:H:i',
-            'schedule.dates.*.working_hours.end' => 'required_if:type,dinamic|date_format:H:i',
+            'schedule.dates' => 'required_if:type,dynamic|array',
+            'schedule.dates.*.working_hours' => 'required_if:type,dynamic|array',
+            'schedule.dates.*.working_hours.start' => 'required_if:type,dynamic|date_format:H:i',
+            'schedule.dates.*.working_hours.end' => 'required_if:type,dynamic|date_format:H:i',
             'schedule.dates.*.breaks' => 'sometimes|array',
             'schedule.dates.*.breaks.*.start' => 'required_with:schedule.dates.*.breaks|date_format:H:i',
             'schedule.dates.*.breaks.*.end' => 'required_with:schedule.dates.*.breaks|date_format:H:i',
@@ -1114,10 +1114,10 @@ class StoreTimetableRequest extends FormRequest
             'schedule.days.*.breaks.*.end' => 'required_with:schedule.days.*.breaks|date_format:H:i',
             'schedule.holidays' => 'sometimes|array',
             'schedule.holidays.*' => 'string|regex:/^\d{2}-\d{2}$/',
-            'schedule.dates' => 'required_if:type,dinamic|array',
-            'schedule.dates.*.working_hours' => 'required_if:type,dinamic|array',
-            'schedule.dates.*.working_hours.start' => 'required_if:type,dinamic|date_format:H:i',
-            'schedule.dates.*.working_hours.end' => 'required_if:type,dinamic|date_format:H:i',
+            'schedule.dates' => 'required_if:type,dynamic|array',
+            'schedule.dates.*.working_hours' => 'required_if:type,dynamic|array',
+            'schedule.dates.*.working_hours.start' => 'required_if:type,dynamic|date_format:H:i',
+            'schedule.dates.*.working_hours.end' => 'required_if:type,dynamic|date_format:H:i',
             'schedule.dates.*.breaks' => 'sometimes|array',
             'schedule.dates.*.breaks.*.start' => 'required_with:schedule.dates.*.breaks|date_format:H:i',
             'schedule.dates.*.breaks.*.end' => 'required_with:schedule.dates.*.breaks|date_format:H:i',
@@ -1454,7 +1454,7 @@ class Kernel extends ConsoleKernel
 
 
 
-=== app/Console/Commands/GenerateDinamicTimetable.php ===
+=== app/Console/Commands/GeneratedynamicTimetable.php ===
 <?php
 
 namespace App\Console\Commands;
@@ -1467,10 +1467,10 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Data\DynamicScheduleTemplates;
 
-class GenerateDinamicTimetable extends Command
+class GeneratedynamicTimetable extends Command
 {
-    protected $signature = 'timetable:generate-dinamic {company_id} {days=30}';
-    protected $description = 'Generate dinamic timetable for specified period';
+    protected $signature = 'timetable:generate-dynamic {company_id} {days=30}';
+    protected $description = 'Generate dynamic timetable for specified period';
 
     public function handle(
         CreateOrUpdateCompanyAction $createOrUpdateCompanyAction,
@@ -1506,14 +1506,14 @@ class GenerateDinamicTimetable extends Command
             $schedule['dates'][$dateKey] = $this->generateDailySchedule();
         }
 
-        $timetable = $createTimetableFromJsonAction->execute($companyId, $schedule, 'dinamic');
+        $timetable = $createTimetableFromJsonAction->execute($companyId, $schedule, 'dynamic');
 
         // Сохраняем пример в файл
-        Storage::put('exports/dinamic_timetable_example.json', json_encode($schedule, JSON_PRETTY_PRINT));
+        Storage::put('exports/dynamic_timetable_example.json', json_encode($schedule, JSON_PRETTY_PRINT));
 
-        $this->info("Dinamic timetable created successfully for company {$companyId}");
+        $this->info("dynamic timetable created successfully for company {$companyId}");
         $this->info("Generated schedule for " . count($schedule['dates']) . " days (some days skipped)");
-        $this->info("Example saved to storage/app/exports/dinamic_timetable_example.json");
+        $this->info("Example saved to storage/app/exports/dynamic_timetable_example.json");
     }
 
     /**
@@ -3268,7 +3268,7 @@ class GenerateTestDataAction
 
         // Анализируем сгенерированные расписания для создания соответствующих ресурсов
         $staticTimetableInfo = $this->artisanCommandService->getTimetableInfo($staticTimetable->schedule, 'static');
-        $dynamicTimetableInfo = $this->artisanCommandService->getTimetableInfo($dynamicTimetable->schedule, 'dinamic');
+        $dynamicTimetableInfo = $this->artisanCommandService->getTimetableInfo($dynamicTimetable->schedule, 'dynamic');
 
         // Создаем типы ресурсов на основе анализа расписаний
         $resourceTypes = $this->createResourceTypes($companyId, $staticTimetable, $dynamicTimetable, $staticTimetableInfo, $dynamicTimetableInfo);
@@ -3308,7 +3308,7 @@ class GenerateTestDataAction
         // Используем Artisan команду для генерации реального динамического расписания
         $dynamicData = $this->artisanCommandService->generateDynamicTimetable($companyId, 14); // 14 дней для тестов
 
-        return $this->createTimetableFromJsonAction->execute($companyId, $dynamicData, 'dinamic');
+        return $this->createTimetableFromJsonAction->execute($companyId, $dynamicData, 'dynamic');
     }
 
     private function createResourceTypes(
@@ -3346,7 +3346,7 @@ class GenerateTestDataAction
             'description' => "Комната для встреч ({$staticInfo['total_breaks']} перерывов в расписании)",
             'resource_config' => [
                 'slot_duration_minutes' => 30,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'require_confirmation' => true,
                 'max_participants' => 10,
                 'min_advance_time' => 30,
@@ -3378,7 +3378,7 @@ class GenerateTestDataAction
             'description' => 'Оборудование для специальных мероприятий',
             'resource_config' => [
                 'slot_duration_minutes' => 120,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'require_confirmation' => true,
                 'max_participants' => 5,
                 'min_advance_time' => 480,
@@ -3766,7 +3766,7 @@ namespace App\Enums;
 enum SlotStrategy: string
 {
     case FIXED = 'fixed';
-    case DINAMIC = 'dinamic';
+    case dynamic = 'dynamic';
 
     public static function values(): array
     {
@@ -3782,7 +3782,7 @@ enum SlotStrategy: string
     {
         return match($this) {
             self::FIXED => 'Fixed',
-            self::DINAMIC => 'dinamic',
+            self::dynamic => 'dynamic',
         };
     }
 }
@@ -3839,7 +3839,7 @@ namespace App\Enums;
 enum TimetableType: string
 {
     case STATIC = 'static';
-    case DINAMIC = 'dinamic';
+    case dynamic = 'dynamic';
 
     public static function values(): array
     {
@@ -3855,7 +3855,7 @@ enum TimetableType: string
     {
         return match($this) {
             self::STATIC => 'Static Schedule',
-            self::DINAMIC => 'dinamic Schedule',
+            self::dynamic => 'dynamic Schedule',
         };
     }
 
@@ -3864,9 +3864,9 @@ enum TimetableType: string
         return $this === self::STATIC;
     }
 
-    public function isDinamic(): bool
+    public function isdynamic(): bool
     {
-        return $this === self::DINAMIC;
+        return $this === self::dynamic;
     }
 }
 
@@ -4480,7 +4480,7 @@ class ResourceConfig
 
     public function isDynamicStrategy(): bool
     {
-        return $this->slot_strategy === SlotStrategy::DINAMIC;
+        return $this->slot_strategy === SlotStrategy::dynamic;
     }
 
     public function canCancel(\DateTime $bookingStart): bool
@@ -5029,7 +5029,7 @@ class ScenarioResourceConfigData
             2 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 30,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 1440,
                 'cancellation_time' => 720,
                 'reschedule_time' => 1440
@@ -5046,7 +5046,7 @@ class ScenarioResourceConfigData
             4 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 120,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 2880, // 48 часов
                 'cancellation_time' => 0,    // Отмена невозможна для клиента
                 'reschedule_time' => 0,      // Перенос невозможен для клиента
@@ -5063,7 +5063,7 @@ class ScenarioResourceConfigData
             6 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'min_advance_time' => 0,
                 'cancellation_time' => 0,
                 'reschedule_time' => 0
@@ -5080,7 +5080,7 @@ class ScenarioResourceConfigData
             8 => [
                 'require_confirmation' => true,
                 'slot_duration_minutes' => 60,
-                'slot_strategy' => 'dinamic',
+                'slot_strategy' => 'dynamic',
                 'max_participants' => 20,
                 'min_advance_time' => 1440,
                 'cancellation_time' => 720,
@@ -6014,13 +6014,13 @@ class ArtisanCommandService
     public function generateDynamicTimetable(int $companyId, int $days = 30): array
     {
         // Выполняем команду
-        Artisan::call('timetable:generate-dinamic', [
+        Artisan::call('timetable:generate-dynamic', [
             'company_id' => $companyId,
             'days' => $days
         ]);
 
         // Получаем сгенерированные данные из файла
-        $filePath = storage_path('app/exports/dinamic_timetable_example.json');
+        $filePath = storage_path('app/exports/dynamic_timetable_example.json');
         if (!file_exists($filePath)) {
             throw new \Exception('Dynamic timetable example file not found');
         }

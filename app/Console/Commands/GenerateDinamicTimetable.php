@@ -12,8 +12,8 @@ use App\Data\DynamicScheduleTemplates;
 
 class GenerateDinamicTimetable extends Command
 {
-    protected $signature = 'timetable:generate-dinamic {company_id} {days=30}';
-    protected $description = 'Generate dinamic timetable for specified period';
+    protected $signature = 'timetable:generate-dynamic {company_id} {days=30}';
+    protected $description = 'Generate dynamic timetable for specified period';
 
     public function handle(
         CreateOrUpdateCompanyAction $createOrUpdateCompanyAction,
@@ -49,14 +49,14 @@ class GenerateDinamicTimetable extends Command
             $schedule['dates'][$dateKey] = $this->generateDailySchedule();
         }
 
-        $timetable = $createTimetableFromJsonAction->execute($companyId, $schedule, 'dinamic');
+        $timetable = $createTimetableFromJsonAction->execute($companyId, $schedule, 'dynamic');
 
         // Сохраняем пример в файл
-        Storage::put('exports/dinamic_timetable_example.json', json_encode($schedule, JSON_PRETTY_PRINT));
+        Storage::put('exports/dynamic_timetable_example.json', json_encode($schedule, JSON_PRETTY_PRINT));
 
-        $this->info("Dinamic timetable created successfully for company {$companyId}");
+        $this->info("dynamic timetable created successfully for company {$companyId}");
         $this->info("Generated schedule for " . count($schedule['dates']) . " days (some days skipped)");
-        $this->info("Example saved to storage/app/exports/dinamic_timetable_example.json");
+        $this->info("Example saved to storage/app/exports/dynamic_timetable_example.json");
     }
 
     /**
