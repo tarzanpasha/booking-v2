@@ -97,6 +97,10 @@ class BookingService
             ->where('resource_id', $resource->id)
             ->where('start', '=', $start)
             ->where('end', '=', $end)
+            ->whereIn('status', [
+                BookingStatus::PENDING->value,
+                BookingStatus::CONFIRMED->value,
+            ])
             ->first() ?? null;
     }
 
@@ -115,10 +119,10 @@ class BookingService
             $config = $resource->getResourceConfig();
             $startTime = $start instanceof Carbon
                 ? $start
-                : Carbon::parse($start);
+                : Carbon::parse($start); // todo: здесь неужен контроль что интерфейс присылает дату в валидном часовом поясе
             $endTime = $end instanceof Carbon
                 ? $end
-                : Carbon::parse($end);
+                : Carbon::parse($end); // todo: здесь неужен контроль что интерфейс присылает дату в валидном часовом поясе
 
             $status = $config->requiresConfirmation() && !$isAdmin
                 ? BookingStatus::PENDING
@@ -128,6 +132,9 @@ class BookingService
                 if ($booking->status == BookingStatus::CONFIRMED->value || $booking->status == BookingStatus::PENDING->value) {
                     $this->attachBooker($booking, $bookerData, $isAdmin);
                 }
+
+                // todo: см todo ниже, пропущен return?
+                return $booking;
             }
 
             if (!$isAdmin) {
@@ -145,6 +152,8 @@ class BookingService
 
             }
 
+
+            // todo: Booking создается даже если был attach? почему?
 
             $booking = Booking::create([
                 'company_id' => $resource->company_id,
@@ -182,7 +191,7 @@ class BookingService
             ->where('bookable_type', '=', $booker::class)
             ->update(['status' => $status, 'reason' => $reason]);
         /**
-         * Старая версия. Не проверено тестами еще.
+         * TODO: Старая версия. Не проверено тестами еще.
          */
         DB::table('bookables')
             ->where('booking_id', '=', $booking->id)
@@ -199,6 +208,9 @@ class BookingService
             throw new \Exception('Можно подтверждать только брони в статусе ожидания');
         }
 
+        // todo: Запись подтверждается для индивидуальной группы. Если множественная бронь - запись подтверждается
+        // для Booker'a, не для Booking'a
+        // имеет смысл разделить это на два модуля
         $booking->status = BookingStatus::CONFIRMED->value;
         $booking->save();
 
@@ -235,6 +247,9 @@ class BookingService
 
         if ($booking->is_group_booking && !$booking->bookables()->where('status', '=', BookingStatus::CONFIRMED->value)->exists()) {
             $booking->update([
+
+                // todo: Админ может отменить бронь явно. Если просто выписались все участники - это не повод отменять бронь
+                // Особенно в ситуации если висят pending'и
                 'status' => $status->value,
                 'reason' => $reason
             ]);
@@ -338,7 +353,7 @@ class BookingService
 
         // Проверка минимального времени для бронирования
         if ($config->min_advance_time > 0) {
-            $minutesUntilStart = $start->diffInMinutes($now, false); // false чтобы получить отрицательное значение для прошедшего времени
+            $minutesUntilStart = $now->diffInMinutes($start, false); // false чтобы получить отрицательное значение для прошедшего времени
 
             if ($minutesUntilStart < $config->min_advance_time) {
                 throw new \Exception('Бронирование возможно только за ' . $config->min_advance_time . ' минут до начала. До начала осталось: ' . $minutesUntilStart . ' минут');
@@ -351,7 +366,7 @@ class BookingService
         }
 
         if ($start >= $end) {
-            throw new \Exception('Время окончания должно быть после времени начала');
+            throw new \Exception('Время окончания должно быть позже времени начала');
         }
 
         if (!$this->isValidSlotTime($resource, $start, $end, $config)) {
@@ -379,10 +394,16 @@ class BookingService
     {
         $config = $booking->resource->getResourceConfig();
         $countBookers = $booking->bookables()
-            ->where('status', BookingStatus::CONFIRMED->value)
-            ->get()
+            ->whereIn('status', [
+                BookingStatus::CONFIRMED->value,
+                BookingStatus::PENDING->value,
+            ]) //
+//            ->get()
             ->count();
-        if ($countBookers < $config->max_participants) {
+
+        if ($countBookers < $config->max_participants ?? PHP_INT_MAX) {
+
+             // todo: непонятно что тут происходит
             if ($isAdmin) {
                 $booker->bookings()->syncWithoutDetaching([$booking->id => [
                     'status' => BookingStatus::CONFIRMED->value,
@@ -400,6 +421,8 @@ class BookingService
 
 
         } else {
+            // todo: нужно кидать business exception? Или как клиент узнает, что он не попал в брони?
+
             $booker->bookings()->syncWithoutDetaching([$booking->id => [
                 'status' => BookingStatus::REJECTED->value,
                 'reason' => "Бронь переполнена",
@@ -423,7 +446,7 @@ class BookingService
         $workingHours = $this->getWorkingHoursForDate($timetable, $start);
 
         if (!$workingHours) {
-            return true;
+            return true; // todo: почему true?
         }
 
         $breaks = $workingHours['breaks'] ?? [];

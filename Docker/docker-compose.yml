@@ -19,6 +19,33 @@ services:
             - "8006:3306"
         networks:
             - backend
+        healthcheck:
+            test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pbooking --silent"]
+            interval: 3s
+            timeout: 3s
+            retries: 30
+    db_init:
+        image: mysql:8.0
+        container_name: booking_db_init
+        networks:
+            - backend
+        restart: "no"
+        depends_on:
+            - booking
+        entrypoint: ["/bin/sh", "-c"]
+        command: >
+            echo "Waiting for MySQL (TCP)..." ;
+            until mysqladmin ping --protocol=tcp -h booking -P 3306 -uroot -pbooking --silent ; do
+              sleep 1 ;
+            done ;
+            echo "Creating test database..." ;
+            mysql --protocol=tcp -h booking -P 3306 -uroot -pbooking -e "
+              CREATE DATABASE IF NOT EXISTS booking_test
+                CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+              GRANT ALL PRIVILEGES ON booking_test.* TO 'booking'@'%';
+              FLUSH PRIVILEGES;
+            " ;
+            echo "Done."
     phpmyadmin_booking:
         container_name: phpmyadmin_booking
         image: phpmyadmin

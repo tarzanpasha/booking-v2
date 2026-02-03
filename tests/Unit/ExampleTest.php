@@ -2,15 +2,22 @@
 
 namespace Tests\Unit;
 
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_that_true_is_true(): void
+    public function test_env_testing_loaded_and_db_connection_works(): void
     {
-        $this->assertTrue(true);
+        // Проверяем, что поднялось Laravel окружение для тестов
+        $this->assertSame('testing', config('app.env'));
+
+        // Проверяем, что используем нужную БД (из .env.testing)
+        $this->assertSame('mysql', config('database.default'));
+        $this->assertSame('booking_test', config('database.connections.mysql.database'));
+
+        // Проверяем соединение
+        $row = DB::selectOne('SELECT 1 AS ok');
+        $this->assertSame(1, (int) $row->ok);
     }
 }

@@ -5,7 +5,7 @@ namespace App\Enums;
 enum TimetableType: string
 {
     case STATIC = 'static';
-    case dynamic = 'dynamic';
+    case DYNAMIC = 'dynamic';
 
     public static function values(): array
     {

@@ -91,6 +91,9 @@ class ResourceConfig
         }
 
         $now = new \DateTime();
+
+        // todo: нет учета прошлое/будущее, используется или lt/gt, или true вторым аргументом.
+        // ПЕРЕПРОВЕРИТЬ ПРАВИЛЬНОСТЬ!
         $diff = $now->diff($bookingStart);
         $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
 
@@ -107,6 +110,8 @@ class ResourceConfig
         }
 
         $now = new \DateTime();
+        // todo: нет учета прошлое/будущее, используется или lt/gt, или true вторым аргументом.
+        // ПЕРЕПРОВЕРИТЬ ПРАВИЛЬНОСТЬ!
         $diff = $now->diff($bookingStart);
         $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
 
@@ -119,6 +124,8 @@ class ResourceConfig
 
         $now = new \DateTime();
         $diff = $now->diff($bookingStart);
+        // todo: нет учета прошлое/будущее, используется или lt/gt, или true вторым аргументом.
+        // ПЕРЕПРОВЕРИТЬ ПРАВИЛЬНОСТЬ!
         $minutes = $diff->days * 24 * 60 + $diff->h * 60 + $diff->i;
 
         return $minutes <= $this->reminder_time;
