@@ -10,14 +10,24 @@ use Carbon\CarbonPeriod;
 
 class SlotGenerationService
 {
+    private function getFromDate(?Carbon $from, ?int $minutes): Carbon
+    {
+        $fromDateTime = $from ?? now();
+        if (!$minutes) {
+            return $fromDateTime;
+        }
+        return Carbon::parse($fromDateTime)->addMinutes($minutes);
+    }
+
     public function getNextAvailableSlots(
         Resource $resource,
         Carbon $from = null,
         int $count = 5,
         bool $onlyToday = true
     ): array {
-        $from = $from ?? now();
+        // получение начала слота в случае если задан min_advance_time
         $config = $resource->getResourceConfig();
+        $from = $this->getFromDate($from, $config->min_advance_time ?? null);
         $slots = [];
         $currentDate = $from->copy();
 
@@ -28,6 +38,48 @@ class SlotGenerationService
             if (!empty($daySlots)) {
                 foreach ($daySlots as $slot) {
                     if (count($slots) >= $count) break;
+
+                    // Проверяем что слот имеет правильную структуру
+                    if (isset($slot['start']) && isset($slot['end'])) {
+                        // Проверяем что слот доступен
+                        if ($this->isSlotAvailable($resource, $slot['start'], 1)) {
+                            $slots[] = $slot;
+                        }
+                    }
+                }
+            }
+
+            if ($onlyToday) break;
+            $currentDate->addDay();
+        }
+
+        return $slots;
+    }
+
+    /**
+     * Выдаёт доступные слоты за две даты
+     * @param Resource $resource
+     * @param Carbon $from
+     * @param Carbon $to
+     * @return array
+     */
+    public function getAvailableSlotsForPeriod(
+        Resource $resource,
+        Carbon $from,
+        Carbon $to
+    ): array {
+        $slots = [];
+        $onlyToday = $to->isSameDay($from);
+
+        $currentDate = $from->copy();
+
+        while (1) {
+            $daySlots = $this->generateSlotsForDate($resource, $currentDate);
+
+            // Добавляем проверку на пустые слоты и корректную структуру
+            if (!empty($daySlots)) {
+                foreach ($daySlots as $slot) {
+                    //if (count($slots) >= $count) break;
 
                     // Проверяем что слот имеет правильную структуру
                     if (isset($slot['start']) && isset($slot['end'])) {
@@ -57,7 +109,6 @@ class SlotGenerationService
 
         $workingHours = $this->getWorkingHoursForDate($timetable, $date);
 
-//        dump($workingHours);
 
         // Если рабочие часы не найдены (праздник или выходной) - возвращаем пустой массив
         if (!$workingHours) {
@@ -145,7 +196,8 @@ class SlotGenerationService
         if (!isset($workingHours['start']) || !isset($workingHours['end'])) {
             return [];
         }
-
+        //ToDo (Паша нашел) а если брони шире этого дня? надо учесть и это. сразу сказать что нет слотов
+        // нужно завести функцию определяющую букинги за этот день если нет более широких
         $bookings = Booking::where('resource_id', $resource->id)
             ->whereDate('start', $date)
             ->whereIn('status', ['pending', 'confirmed'])

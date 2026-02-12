@@ -20,22 +20,43 @@ class BookingService
     {
     }
 
+    private function toUtc($date): Carbon
+    {
+        if ($date instanceof Carbon) {
+            return $date->copy()->utc();
+        }
+
+        $carbon = Carbon::parse($date);
+        return $carbon->utc();
+    }
+
     /**
      * Проверяет доступность диапазона с учетом перерывов и других бронирований
      */
     public function isTimeRangeAvailable(Resource $resource, Carbon $start, Carbon $end): bool
     {
-        // Сначала проверяем бронирования
+        // Сначала проверяем наличие бронирований внутри интервала
         if (!$this->isRangeAvailable($resource, $start, $end)) {
             return false;
         }
 
-        // Затем проверяем перерывы с ИСПРАВЛЕННОЙ логикой
-        if (!$this->isTimeAvailableConsideringBreaks($resource, $start, $end)) {
+        // Затем проверяем перерывы с внутри интервала
+        if (!$this->isBreakExistBetweenInterval($resource, $start, $end)) {
             return false;
         }
 
         return true;
+    }
+
+    public function isBreakExistBetweenInterval(Resource $resource, Carbon $start, Carbon $end): bool
+    {
+        $timetable = $resource->getEffectiveTimetable();
+
+        if (!$timetable) {
+            return false;
+        }
+
+
     }
 
     public function isSlotAvailable(Resource $resource, string $start, int $slots = 1): bool
@@ -52,11 +73,10 @@ class BookingService
 
     public function isRangeAvailable(Resource $resource, Carbon $from, Carbon $to): bool
     {
-        // todo: эквивалентно?
         if ($from->greaterThanOrEqualTo($to)) {
             return false;
         }
-
+        // проверяем есть ли такая бронь, которая перекрывает эту (эта находится внутри той по интервалу)
         $overlapExists = Booking::query()
             ->where('resource_id', $resource->id)
             ->whereIn('status', [
@@ -68,33 +88,11 @@ class BookingService
             ->exists();
 
         return !$overlapExists;
-
-        $overlapExists = Booking::where('resource_id', $resource->id)
-            ->where(function ($query) use ($from, $to) {
-                $query->where(function ($q) use ($from, $to) {
-                    // Бронь начинается внутри запрашиваемого диапазона
-                    $q->where('start', '>=', $from)
-                        ->where('start', '<', $to);
-                })->orWhere(function ($q) use ($from, $to) {
-                    // Бронь заканчивается внутри запрашиваемого диапазона
-                    $q->where('end', '>', $from)
-                        ->where('end', '<=', $to);
-                })->orWhere(function ($q) use ($from, $to) {
-                    // Бронь полностью содержит запрашиваемый диапазон
-                    $q->where('start', '<', $from)
-                        ->where('end', '>', $to);
-                });
-            })
-            ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
-            ->exists();
-
-        return !$overlapExists;
     }
 
     private function getBookingForThatPeriod(Resource $resource, Carbon $start, Carbon $end): ?Booking
     {
-        return Booking::query()
-            ->where('resource_id', $resource->id)
+        return Booking::where('resource_id', $resource->id)
             ->where('start', '=', $start)
             ->where('end', '=', $end)
             ->whereIn('status', [
@@ -111,89 +109,63 @@ class BookingService
         Resource      $resource,
         Carbon|string $start,
         Carbon|string $end,
-        Model         $bookerData,
         bool          $isAdmin = false
     ): Booking
     {
-        return DB::transaction(function () use ($resource, $start, $end, $bookerData, $isAdmin) {
-            $config = $resource->getResourceConfig();
-            $startTime = $start instanceof Carbon
-                ? $start
-                : Carbon::parse($start); // todo: здесь неужен контроль что интерфейс присылает дату в валидном часовом поясе
-            $endTime = $end instanceof Carbon
-                ? $end
-                : Carbon::parse($end); // todo: здесь неужен контроль что интерфейс присылает дату в валидном часовом поясе
+        $config = $resource->getResourceConfig();
+        $startTime = $this->toUtc($start);
+        $endTime = $this->toUtc($end);
 
-            $status = $config->requiresConfirmation() && !$isAdmin
-                ? BookingStatus::PENDING
-                : BookingStatus::CONFIRMED;
-
-            if ($booking = $this->getBookingForThatPeriod($resource, $startTime, $endTime)) {
-                if ($booking->status == BookingStatus::CONFIRMED->value || $booking->status == BookingStatus::PENDING->value) {
-                    $this->attachBooker($booking, $bookerData, $isAdmin);
-                }
-
-                // todo: см todo ниже, пропущен return?
-                return $booking;
-            }
-
-            if (!$isAdmin) {
-                $this->validateBookingTime($resource, $startTime, $endTime, $config);
-
-                // Для обычных пользователей проверяем доступность
-                if (!$this->isTimeRangeAvailable($resource, $startTime, $endTime)) {
-                    throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
-                }
-            } else {
-                // Для администраторов проверяем только базовую валидность времени
-                if ($startTime >= $endTime) {
-                    throw new \Exception('Время окончания должно быть после времени начала');
-                }
-
-            }
-
-
-            // todo: Booking создается даже если был attach? почему?
-
-            $booking = Booking::create([
-                'company_id' => $resource->company_id,
-                'resource_id' => $resource->id,
-                'timetable_id' => $resource->getEffectiveTimetable()?->id, // todo зачем?
-                'is_group_booking' => $config->isGroupResource(),
-                'start' => $startTime,
-                'end' => $endTime,
-                'status' => $status->value,
-            ]);
-
-            if (!empty($bookerData)) {
-                $this->attachBooker($booking, $bookerData);
-            }
-
-            BookingLoggerService::info("✅ Бронь создана", [
-                'booking_id' => $booking->id,
-                'resource_id' => $resource->id,
-                'status' => $booking->status,
-                'is_admin' => $isAdmin
-            ]);
-
-            event(new \App\Events\BookingCreated($booking));
-
+        // если уже создано такая броня
+        if ($booking = $this->getBookingForThatPeriod($resource, $startTime, $endTime)) {
             return $booking;
-        });
+        }
+
+        if (!$isAdmin) {
+            $this->validateBookingTime($resource, $startTime, $endTime, $config);
+
+            // Для обычных пользователей проверяем доступность
+            if (!$this->isTimeRangeAvailable($resource, $startTime, $endTime)) {
+                throw new \Exception('Выбранный временной диапазон недоступен (занят или пересекается с перерывом)');
+            }
+        } else {
+            // Для администраторов проверяем только базовую валидность времени
+            if ($startTime >= $endTime) {
+                throw new \Exception('Время окончания должно быть после времени начала');
+            }
+
+        }
+
+        $status = $config->requiresConfirmation() && !$isAdmin
+            ? BookingStatus::PENDING
+            : BookingStatus::CONFIRMED;
+
+        $booking = Booking::create([
+            'company_id' => $resource->company_id,
+            'resource_id' => $resource->id,
+            'timetable_id' => $resource->getEffectiveTimetable()?->id,
+            'is_group_booking' => $config->isGroupResource(),
+            'start' => $startTime,
+            'end' => $endTime,
+            'status' => $status->value,
+        ]);
+
+        BookingLoggerService::info("✅ Бронь создана", [
+            'booking_id' => $booking->id,
+            'resource_id' => $resource->id,
+            'status' => $booking->status,
+            'is_admin' => $isAdmin
+        ]);
+
+        event(new \App\Events\BookingCreated($booking));
+
+        return $booking;
     }
 
 
     private function changeBookableStatus(Booking $booking, Model $booker, string $status, ?string $reason = ""): void
     {
         $booking->bookables()
-            ->where('booking_id', '=', $booking->id)
-            ->where('bookable_id', '=', $booker->id)
-            ->where('bookable_type', '=', $booker::class)
-            ->update(['status' => $status, 'reason' => $reason]);
-        /**
-         * TODO: Старая версия. Не проверено тестами еще.
-         */
-        DB::table('bookables')
             ->where('booking_id', '=', $booking->id)
             ->where('bookable_id', '=', $booker->id)
             ->where('bookable_type', '=', $booker::class)
@@ -347,6 +319,10 @@ class BookingService
     }
 
     // В app/Services/Booking/BookingService.php
+
+    /**
+     * @throws \Exception
+     */
     private function validateBookingTime(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): void
     {
         $now = now();
@@ -369,9 +345,14 @@ class BookingService
             throw new \Exception('Время окончания должно быть позже времени начала');
         }
 
-        if (!$this->isValidSlotTime($resource, $start, $end, $config)) {
+        if (!$this->isValidSlotTimeForDates($resource, $start, $end, $config)) {
             throw new \Exception('Выбранное время не соответствует доступным слотам');
         }
+    }
+
+    private function isValidSlotTimeForDates(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): bool
+    {
+        $slots = $this->slotService->getAvailableSlotsForPeriod($resource, $start, $end);
     }
 
     private function isValidSlotTime(Resource $resource, Carbon $start, Carbon $end, ResourceConfig $config): bool
@@ -440,13 +421,13 @@ class BookingService
 
 
         if (!$timetable) {
-            return true;
+            return false;
         }
 
         $workingHours = $this->getWorkingHoursForDate($timetable, $start);
 
         if (!$workingHours) {
-            return true; // todo: почему true?
+            return false; // todo: почему true?
         }
 
         $breaks = $workingHours['breaks'] ?? [];
