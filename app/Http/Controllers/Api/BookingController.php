@@ -56,7 +56,6 @@ class BookingController extends Controller
                 $resource,
                 $request->start,
                 $request->end,
-                $request->booker ?? [],
                 $request->is_admin ?? false
             );
 
@@ -71,6 +70,7 @@ class BookingController extends Controller
             return response()->json([
                 'error' => $e->getMessage()
             ], 422);
+        } catch (\Throwable $e) {
         }
     }
 

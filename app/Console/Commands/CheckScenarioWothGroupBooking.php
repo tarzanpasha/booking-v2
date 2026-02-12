@@ -47,17 +47,17 @@ class CheckScenarioWothGroupBooking extends Command
     {
         $resource = Resource::find(4);
 
-        $bookingManyPeople = $service->createBooking($resource, '28.01.2026 14:00', '28.01.2026 15:00', $this->getNewUser(), true);
+        //$bookingManyPeople = $service->createBooking($resource, '28.01.2026 14:00', '28.01.2026 15:00', $this->getNewUser(), true);
 
+        /*$service->attachBooker($bookingManyPeople, $this->getNewUser());
         $service->attachBooker($bookingManyPeople, $this->getNewUser());
-        $service->attachBooker($bookingManyPeople, $this->getNewUser());
-        $service->attachBooker($bookingManyPeople, $this->getNewUser());
+        $service->attachBooker($bookingManyPeople, $this->getNewUser());*/
 
-        $bookingSingle = $service->createBooking($resource, '28.01.2026 18:00', '28.01.2026 19:00', $this->getNewUser(), true);
+        //$bookingSingle = $service->createBooking($resource, '28.01.2026 18:00', '28.01.2026 19:00', $this->getNewUser(), true);
 
-        $bookingReshedules = $service->rescheduleBooking($bookingManyPeople->id, '28.01.2026 17:30', '28.01.2026 18:30', 'admin');
+        //$bookingReshedules = $service->rescheduleBooking($bookingManyPeople->id, '28.01.2026 17:30', '28.01.2026 18:30', 'admin');
 
-        $slots = $service->getNextAvailableSlots($resource, Carbon::tomorrow(), 15, false );
+        $slots = $service->getNextAvailableSlots($resource, null, 15, false );
 
     }
 }
